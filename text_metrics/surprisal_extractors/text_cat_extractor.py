@@ -1,9 +1,11 @@
 # Define classes for each mode
-from text_metrics.surprisal_extractors.base_extractor import BaseSurprisalExtractor
 from typing import List, Tuple
+
 import numpy as np
-from text_metrics.utils import remove_redundant_left_context
 import torch
+
+from text_metrics.surprisal_extractors.base_extractor import BaseSurprisalExtractor
+from text_metrics.utils import remove_redundant_left_context
 
 
 class CatCtxLeftSurpExtractor(BaseSurprisalExtractor):
@@ -122,9 +124,9 @@ class CatCtxLeftSurpExtractor(BaseSurprisalExtractor):
             full_context = left_context_text + " " + target_text
             target_text_char_onset = len(full_context) - len(target_text)
 
-            assert (
-                overlap_size < max_ctx
-            ), f"Stride size {overlap_size} is larger than the maximum context size {max_ctx}"
+            assert overlap_size < max_ctx, (
+                f"Stride size {overlap_size} is larger than the maximum context size {max_ctx}"
+            )
 
             (
                 all_log_probs,

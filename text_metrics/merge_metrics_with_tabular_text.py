@@ -37,7 +37,8 @@ def add_metrics_tabular_text(
             model_target_device=model_target_device,
         )
         for index, sentence in tqdm.tqdm(
-            grouped_text.items(), total=len(grouped_text),
+            grouped_text.items(),
+            total=len(grouped_text),
             desc=f"Extracting metrics ({model_name})",
         ):
             merged_df = get_metrics(
@@ -71,7 +72,6 @@ def add_metrics_tabular_text(
 
 
 if __name__ == "__main__":
-
     stim = pd.read_csv("stim.csv", keep_default_na=False)
     tabular_text_enriched = add_metrics_tabular_text(stim, ["gpt2"])
     tabular_text_enriched.to_csv("stim_with_surprisal.csv", index=False)

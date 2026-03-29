@@ -1,16 +1,16 @@
 from typing import List, Tuple
 
 import pandas as pd
+import torch
 from torch._tensor import Tensor
 
 from text_metrics.pimentel_word_prob.wordsprobability.main import agg_surprisal_per_word
 from text_metrics.pimentel_word_prob.wordsprobability.models import (
-    get_model,
     MODELS,
+    get_model,
 )
 from text_metrics.pimentel_word_prob.wordsprobability.models.bow_lm import BaseBOWModel
 from text_metrics.surprisal_extractors.text_cat_extractor import CatCtxLeftSurpExtractor
-import torch
 from text_metrics.utils import remove_redundant_left_context
 
 
@@ -108,9 +108,9 @@ class PimentelSurpExtractor(CatCtxLeftSurpExtractor):
             else:
                 full_context = target_text
 
-            assert (
-                overlap_size < max_ctx
-            ), f"Stride size {overlap_size} is larger than the maximum context size {max_ctx}"
+            assert overlap_size < max_ctx, (
+                f"Stride size {overlap_size} is larger than the maximum context size {max_ctx}"
+            )
 
             dataframe_surps = self._full_context_to_probs_and_offsets(
                 full_context=full_context,

@@ -1,19 +1,19 @@
 import string
+from importlib.resources import files
 from typing import Literal
 
+import matplotlib
 import numpy as np
 import pandas as pd
 import spacy
-from text_metrics.surprisal_extractors.base_extractor import BaseSurprisalExtractor
-from importlib.resources import files
+from wordfreq import tokenize, word_frequency
 
-from text_metrics.utils import get_parsing_features, string_to_log_probs, clean_text
-from wordfreq import word_frequency, tokenize
-from text_metrics.surprisal_extractors.extractors_constants import SurpExtractorType
+from text_metrics.surprisal_extractors.base_extractor import BaseSurprisalExtractor
 from text_metrics.surprisal_extractors.extractor_switch import (
     get_surp_extractor,
 )
-import matplotlib
+from text_metrics.surprisal_extractors.extractors_constants import SurpExtractorType
+from text_metrics.utils import clean_text, get_parsing_features, string_to_log_probs
 from text_metrics.viz_text_heatmap import generate_html_for_texts
 
 
@@ -60,12 +60,12 @@ def get_surprisal(
             overlap_size=overlap_size,
         )
     # assert there are no NaN values
-    assert (
-        not dataframe_probs.isnull().values.any()
-    ), "There are NaN values in the dataframe."
-    assert (
-        len(dataframe_probs) == len(target_text.split())
-    ), "The number of words in the surprisal dataframe does not match the number of words in the text."
+    assert not dataframe_probs.isnull().values.any(), (
+        "There are NaN values in the dataframe."
+    )
+    assert len(dataframe_probs) == len(target_text.split()), (
+        "The number of words in the surprisal dataframe does not match the number of words in the text."
+    )
     return dataframe_probs
 
 
@@ -95,10 +95,13 @@ def get_frequency(text: str, language: str) -> pd.DataFrame:
     frequencies = {
         "Word": words,
         "Wordfreq_Frequency": [
-            -np.log2(word_frequency(word, lang=language, minimum=1e-11)) for word in words
+            -np.log2(word_frequency(word, lang=language, minimum=1e-11))
+            for word in words
         ],  # minimum equal to ~36.5
     }
-    data_path = files("text_metrics").joinpath("data/SUBTLEXus74286wordstextversion_lower.tsv")
+    data_path = files("text_metrics").joinpath(
+        "data/SUBTLEXus74286wordstextversion_lower.tsv"
+    )
     subtlex = pd.read_csv(
         data_path,
         sep="\t",
@@ -116,7 +119,9 @@ def get_frequency(text: str, language: str) -> pd.DataFrame:
         except KeyError:
             subtlex_freq = float("inf")
         else:
-            subtlex_freq = 1.0 / one_over_result if one_over_result != 0 else float("inf")
+            subtlex_freq = (
+                1.0 / one_over_result if one_over_result != 0 else float("inf")
+            )
         subtlex_freqs.append(subtlex_freq)
     frequencies["subtlex_Frequency"] = subtlex_freqs
 
@@ -180,7 +185,7 @@ def get_metrics(
     left_context_text: str | None = None,
     add_parsing_features: bool = True,
     overlap_size: int = 512,
-    language: str = 'en',
+    language: str = "en",
     disregard_punctuation: bool = True,
 ) -> pd.DataFrame:
     """
@@ -221,12 +226,12 @@ def get_metrics(
     merged_df = merged_df.join(surprisal.drop("Word", axis=1))
 
     if add_parsing_features:
-        assert (
-            parsing_model is not None
-        ), "Please provide a parsing model to extract parsing features."
-        assert (
-            parsing_mode is not None
-        ), "Please provide a parsing mode to extract parsing features."
+        assert parsing_model is not None, (
+            "Please provide a parsing model to extract parsing features."
+        )
+        assert parsing_mode is not None, (
+            "Please provide a parsing mode to extract parsing features."
+        )
 
         parsing_features = get_parsing_features(
             target_text_reformatted, parsing_model, parsing_mode

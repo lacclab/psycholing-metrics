@@ -11,11 +11,11 @@ def _get_lmzoo_surprisal(text: str, model: str) -> pd.DataFrame:
     """
 
     df = zoo.get_surprisals(zoo.get_registry()[model], [text])
-    df.columns = ['Word', 'Surprisal']
+    df.columns = ["Word", "Surprisal"]
     df = df.reset_index(drop=True)
     return df
 
 
-if __name__ == '__main__':
-    df = _get_lmzoo_surprisal(text='hello, how are you?', model='gpt2')
+if __name__ == "__main__":
+    df = _get_lmzoo_surprisal(text="hello, how are you?", model="gpt2")
     print(df)

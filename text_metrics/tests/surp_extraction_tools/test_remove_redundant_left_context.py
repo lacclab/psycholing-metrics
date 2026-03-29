@@ -1,13 +1,14 @@
 import unittest
+
 from transformers import (
     AutoTokenizer,
     GPTNeoXTokenizerFast,
 )
+
 from text_metrics.utils import remove_redundant_left_context
 
 
 class TestRemoveRedundantLeftContext(unittest.TestCase):
-
     def setUp(self):
         # Initialize the different tokenizers
         self.tokenizers = {

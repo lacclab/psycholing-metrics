@@ -1,9 +1,11 @@
 from typing import List, Tuple
 
 import numpy as np
+import spacy
 import torch
-from text_metrics.surprisal_extractors.base_extractor import BaseSurprisalExtractor
 from sentence_splitter import split_text_into_sentences
+
+from text_metrics.surprisal_extractors.base_extractor import BaseSurprisalExtractor
 
 
 class SoftCatCtxSurpExtractor(BaseSurprisalExtractor):

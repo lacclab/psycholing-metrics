@@ -1,11 +1,11 @@
+from text_metrics.surprisal_extractors.extractors_constants import SurpExtractorType
+from text_metrics.surprisal_extractors.inv_effect_extractor import InvEffectExtractor
+from text_metrics.surprisal_extractors.pimentel_extractor import PimentelSurpExtractor
 from text_metrics.surprisal_extractors.soft_cat_extractors import (
-    SoftCatWholeCtxSurpExtractor,
     SoftCatSentencesSurpExtractor,
+    SoftCatWholeCtxSurpExtractor,
 )
 from text_metrics.surprisal_extractors.text_cat_extractor import CatCtxLeftSurpExtractor
-from text_metrics.surprisal_extractors.pimentel_extractor import PimentelSurpExtractor
-from text_metrics.surprisal_extractors.inv_effect_extractor import InvEffectExtractor
-from text_metrics.surprisal_extractors.extractors_constants import SurpExtractorType
 
 
 def get_surp_extractor(

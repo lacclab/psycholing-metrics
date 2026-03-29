@@ -1,13 +1,14 @@
 import string
 from abc import ABC, abstractmethod
+
 import numpy as np
 import torch
 import torch.nn.functional as F
 from transformers import (
+    AutoTokenizer,
     GPT2LMHeadModel,
     GPT2TokenizerFast,
     GPTNeoXForCausalLM,
-    AutoTokenizer,
 )
 
 

@@ -1,13 +1,14 @@
 import argparse
+import os
 from typing import List, Optional
+
 import pandas as pd
 
 from text_metrics.pimentel_word_prob.wordsprobability.models import (
-    get_model,
     get_bow_symbol,
+    get_model,
 )
 from text_metrics.pimentel_word_prob.wordsprobability.utils import constants
-import os
 
 
 def get_args():

@@ -1,9 +1,10 @@
 from collections.abc import Sequence
+from typing import List
+
 import matplotlib
 import matplotlib.cm
-import numpy as np
 import matplotlib.colors as mcolors
-from typing import List
+import numpy as np
 
 
 class MidpointNormalizer(mcolors.Normalize):
@@ -39,9 +40,9 @@ def colorize_weighted_text(
     """
     template = '<span title="{}" class="barcode" style="color: {}; background-color: {}; font-size:1.5em">{}</span>\n'
     colored_string = ""
-    assert len(words) == len(
-        weights
-    ), "words and color array should be the same length!"
+    assert len(words) == len(weights), (
+        "words and color array should be the same length!"
+    )
     if text_on_hover is None:
         text_on_hover = weights
     for word, weight, aspan_flag, dspan_flag, weight_on_hover in zip(
@@ -108,8 +109,8 @@ def generate_html_for_texts(
     with open(output_file_name, "w") as f:
         f.write(html_content)
 
-if __name__ == '__main__':
 
+if __name__ == "__main__":
     # Example usage
     texts = [
         "Many of us know we don't get enough sleep, but imagine if there was a simple solution.",

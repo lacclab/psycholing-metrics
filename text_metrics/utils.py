@@ -1,3 +1,4 @@
+import re
 from collections import defaultdict
 from typing import List, Literal
 
@@ -13,7 +14,6 @@ from transformers import (
     LlamaForCausalLM,
     MambaForCausalLM,
 )
-import re
 
 CONTENT_WORDS = {
     "PUNCT": False,
@@ -305,9 +305,9 @@ def init_tok_n_model(
     elif "Eagle" in model_variant:  # RWKV V5
         tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
     elif any(variant in model_variant for variant in ["Llama", "Mistral", "gemma"]):
-        assert (
-            hf_access_token is not None
-        ), f"Please provide the HuggingFace access token to load {model_name}"
+        assert hf_access_token is not None, (
+            f"Please provide the HuggingFace access token to load {model_name}"
+        )
         tokenizer = AutoTokenizer.from_pretrained(
             model_name, use_fast=True, token=hf_access_token
         )

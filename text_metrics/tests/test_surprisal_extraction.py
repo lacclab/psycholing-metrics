@@ -1,11 +1,11 @@
 import unittest
-from text_metrics.utils import clean_text
+
 from text_metrics.ling_metrics_funcs import get_surprisal
 from text_metrics.surprisal_extractors.base_extractor import CatCtxLeftSurpExtractor
+from text_metrics.utils import clean_text
 
 
 class TestSurprisalExtraction(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         with open("text_metrics/tests/below_2048.txt", "r") as file:

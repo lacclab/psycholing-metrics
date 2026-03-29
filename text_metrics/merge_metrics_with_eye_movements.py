@@ -1,18 +1,20 @@
 import gc
 from functools import partial
-from typing import Tuple, Dict, List, Literal
+from typing import Dict, List, Literal, Tuple
+
 import pandas as pd
-import tqdm
 import spacy
-from text_metrics.utils import break_down_p_id
-from spacy.language import Language
 import torch
+import tqdm
+from spacy.language import Language
+
 from text_metrics.ling_metrics_funcs import get_metrics
 from text_metrics.surprisal_extractors import (
     base_extractor,
-    extractors_constants,
     extractor_switch,
+    extractors_constants,
 )
+from text_metrics.utils import break_down_p_id
 
 
 def create_text_input(
@@ -226,7 +228,9 @@ def extract_metrics_for_text_df_multiple_hf_models(
     """
     assert not (
         add_parsing_features is True and (parsing_mode is None or spacy_model is None)
-    ), "If add_parsing_features is True, both parsing_mode and spacy_model must be provided"
+    ), (
+        "If add_parsing_features is True, both parsing_mode and spacy_model must be provided"
+    )
 
     if extract_metrics_for_text_df_kwargs is None:
         extract_metrics_for_text_df_kwargs = {}
@@ -284,7 +288,7 @@ def extract_metrics_for_text_df_multiple_hf_models(
                     on=text_key_cols + ["index"],
                     validate="one_to_one",
                 )
-                
+
             def save_temp(df: pd.DataFrame, save_path, groupby_cols) -> pd.DataFrame:
                 text_df_w_metrics = df.drop(
                     columns=[
@@ -293,7 +297,7 @@ def extract_metrics_for_text_df_multiple_hf_models(
                         "Wordfreq_Frequency",
                         "subtlex_Frequency",
                     ]
-                    )
+                )
                 mean_surp_df = (
                     text_df_w_metrics.groupby(groupby_cols)
                     .agg(
@@ -310,17 +314,17 @@ def extract_metrics_for_text_df_multiple_hf_models(
                 ]
                 mean_surp_df.to_csv(save_path, index=False)
                 print(f"Saved to {save_path}")
+
             if save_path is not None:
                 save_temp(metric_df, save_path, text_key_cols)
             # move the model back to the cpu and delete it to free up space
             del surp_extractor
             gc.collect()
             torch.cuda.empty_cache()
-            
 
         except Exception as e:
             print(f"Error for {model_name}: {e}")
-        
+
     return metric_df
 
 

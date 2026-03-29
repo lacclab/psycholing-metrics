@@ -1,7 +1,9 @@
 from typing import List, Tuple
+
 import numpy as np
-from text_metrics.utils import init_tok_n_model
 import torch
+
+from text_metrics.utils import init_tok_n_model
 
 
 class BaseSurprisalExtractor:
@@ -25,9 +27,9 @@ class BaseSurprisalExtractor:
         # if the model is pythia model, save the checkpoint name
         if "pythia" in model_name:
             self.pythia_checkpoint = pythia_checkpoint
-            assert (
-                self.pythia_checkpoint is not None
-            ), "Pythia model requires a checkpoint name"
+            assert self.pythia_checkpoint is not None, (
+                "Pythia model requires a checkpoint name"
+            )
 
     def surprise(
         self,
@@ -82,7 +84,6 @@ class BaseSurprisalExtractor:
             shift_labels.view(-1),
             reduction="none",
         )
-
 
         shift_labels = shift_labels[0]
 
@@ -183,9 +184,9 @@ class BaseSurprisalExtractor:
             except AttributeError:
                 max_ctx = int(1e6)
 
-            assert (
-                overlap_size < max_ctx
-            ), f"Stride size {overlap_size} is larger than the maximum context size {max_ctx}"
+            assert overlap_size < max_ctx, (
+                f"Stride size {overlap_size} is larger than the maximum context size {max_ctx}"
+            )
 
             all_log_probs, offset_mapping, accumulated_tokenized_text = (
                 self._full_context_to_probs_and_offsets(

@@ -70,7 +70,7 @@ class InvEffectExtractor(BaseSurprisalExtractor):
 
         surp_diff = other_surp_col - baseline_surp_col
         surp_diff[surp_diff > 0] = 0
-        surp_diff = -surp_diff # the negative diffs are now positive
+        surp_diff = -surp_diff  # the negative diffs are now positive
         baseline_surp_col += surp_diff
         dataframe_probs_baseline["Surprisal"] = baseline_surp_col
 
