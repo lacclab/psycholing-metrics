@@ -1,8 +1,10 @@
-python>=3.12
 pandas>=2.1.0
-transformers>=4.40.1
-wordfreq>=3.0.3
 numpy>=1.20.3
+torch>=2.0.0
+transformers>=4.40.1
+accelerate
+wordfreq>=3.0.3
+spacy>=3.0.0
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+tqdm
 sentence-splitter
-torch
-spacy

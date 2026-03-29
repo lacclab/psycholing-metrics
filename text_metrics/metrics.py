@@ -1,65 +1,61 @@
+"""Core functions for extracting word-level metrics: surprisal, frequency, and word length."""
+
 import string
 from importlib.resources import files
 from typing import Literal
 
-import matplotlib
 import numpy as np
 import pandas as pd
 import spacy
 from wordfreq import tokenize, word_frequency
 
-from text_metrics.surprisal_extractors.base_extractor import BaseSurprisalExtractor
-from text_metrics.surprisal_extractors.extractor_switch import (
-    get_surp_extractor,
+from text_metrics.surprisal.base import BaseSurprisalExtractor
+from text_metrics.surprisal.types import SurprisalExtractorType
+from text_metrics.text_processing import (
+    aggregate_token_log_probs,
+    clean_text,
+    get_parsing_features,
 )
-from text_metrics.surprisal_extractors.extractors_constants import SurpExtractorType
-from text_metrics.utils import clean_text, get_parsing_features, string_to_log_probs
-from text_metrics.viz_text_heatmap import generate_html_for_texts
 
 
-# Credits: https://github.com/byungdoh/llm_surprisal/blob/eacl24/get_llm_surprisal.py
-# https://github.com/rycolab/revisiting-uid/blob/0b60df7e8f474d9c7ac938e7d8a02fda6fc8787a/src/language_modeling.py#L136
 def get_surprisal(
     target_text: str,
     surp_extractor: BaseSurprisalExtractor,
     overlap_size: int = 512,
     left_context_text: str | None = None,
 ) -> pd.DataFrame:
-    """
-    Get surprisal values for each word in text.
+    """Compute surprisal values for each word in text.
 
-    Words are split by white space, and include adjacent punctuation.
-    A surprisal of a word is the sum of the surprisal of the subwords
-    (as split by the tokenizer) that make up the word.
+    Words are split by whitespace and include adjacent punctuation.
+    A word's surprisal is the sum of its sub-word token surprisals.
 
-    :param target_text: str, the text to get surprisal values for.
+    :param target_text: the text to get surprisal values for.
     :param surp_extractor: the surprisal extractor to use.
-    :param overlap_size: int, the number of tokens to overlap between chunks if text is too long.
-    :param left_context_text: str or None, optional left context to prepend.
-    :return: pd.DataFrame, each row represents a word and its surprisal.
+    :param overlap_size: token overlap between chunks for long texts.
+    :param left_context_text: optional left context to condition on.
+    :return: DataFrame with 'Word' and 'Surprisal' columns.
     """
 
     if surp_extractor.extractor_type_name not in [
-        SurpExtractorType.PIMENTEL_CTX_LEFT.value,
-        SurpExtractorType.INV_EFFECT_EXTRACTOR.value,
+        SurprisalExtractorType.PIMENTEL_CTX_LEFT.value,
+        SurprisalExtractorType.INV_EFFECT_EXTRACTOR.value,
     ]:
-        probs, offset_mapping = surp_extractor.surprise(
+        probs, offset_mapping = surp_extractor.compute_surprisal(
             target_text=target_text,
             left_context_text=left_context_text,
             overlap_size=overlap_size,
         )
 
         dataframe_probs = pd.DataFrame(
-            string_to_log_probs(target_text, probs, offset_mapping)[1],
+            aggregate_token_log_probs(target_text, probs, offset_mapping)[1],
             columns=["Word", "Surprisal"],
         )
     else:
-        dataframe_probs = surp_extractor.surprise(
+        dataframe_probs = surp_extractor.compute_surprisal(
             target_text=target_text,
             left_context_text=left_context_text,
             overlap_size=overlap_size,
         )
-    # assert there are no NaN values
     assert not dataframe_probs.isnull().values.any(), (
         "There are NaN values in the dataframe."
     )
@@ -70,20 +66,18 @@ def get_surprisal(
 
 
 def get_frequency(text: str, language: str) -> pd.DataFrame:
-    """
-    Get (negative log2) frequencies for each word in text.
+    """Compute word frequency (negative log2) for each word in text.
 
-    Words are split by white space.
-    A frequency of a word does not include adjacent punctuation.
-    Half harmonic mean is applied for complex words.
-    E.g. freq(top-level) = 1/(1/freq(top) + 1/freq(level))
+    Uses both the wordfreq library and the SUBTLEX-US corpus.
+    Words are split by whitespace; punctuation is stripped before lookup.
+    Half harmonic mean is applied for compound words (e.g., freq("top-level") = harmonic mean of parts).
 
-    :param text: str, the text to get frequencies for.
-    :param language: str, the language of the text.
-    :return: pd.DataFrame, each row represents a word and its frequency.
+    :param text: the text to get frequencies for.
+    :param language: language code (e.g. 'en').
+    :return: DataFrame with 'Word', 'Wordfreq_Frequency', and 'subtlex_Frequency' columns.
 
     >>> text = "hello, how are you?"
-    >>> frequencies = get_frequency(text=text, language=language)
+    >>> frequencies = get_frequency(text=text, language="en")
     >>> frequencies
          Word  Wordfreq_Frequency  subtlex_Frequency
     0  hello,           14.217323          10.701528
@@ -129,42 +123,30 @@ def get_frequency(text: str, language: str) -> pd.DataFrame:
 
 
 def get_word_length(text: str, disregard_punctuation: bool = True) -> pd.DataFrame:
-    """
-    Get the length of each word in text.
+    """Compute the length of each word in text.
 
-    Words are split by white space.
+    :param text: the text to get lengths for.
+    :param disregard_punctuation: if True, strip punctuation before counting characters.
+    :return: DataFrame with 'Word' and 'Length' columns.
 
-    :param text: str, the text to get lengths for.
-    :param disregard_punctuation: bool, to include adjacent punctuation (False) or not (True).
-    :return: pd.DataFrame, each row represents a word and its length.
-
-    Examples
-    --------
-    >>> text = "hello, how are you?"
-    >>> lengths = get_word_length(text=text, disregard_punctuation=True)
-    >>> lengths
+    >>> get_word_length("hello, how are you?", disregard_punctuation=True)
          Word  Length
     0  hello,       5
     1     how       3
     2     are       3
     3    you?       3
 
-    >>> text = "hello, how are you?"
-    >>> lengths = get_word_length(text=text, disregard_punctuation=False)
-    >>> lengths
+    >>> get_word_length("hello, how are you?", disregard_punctuation=False)
          Word  Length
     0  hello,       6
     1     how       3
     2     are       3
     3    you?       4
-
-
     """
     word_lengths = {
         "Word": text.split(),
     }
     if disregard_punctuation:
-        #     text = text.translate(str.maketrans('', '', string.punctuation))
         word_lengths["Length"] = [
             len(word.translate(str.maketrans("", "", string.punctuation)))
             for word in text.split()
@@ -188,19 +170,20 @@ def get_metrics(
     language: str = "en",
     disregard_punctuation: bool = True,
 ) -> pd.DataFrame:
-    """
-    Wrapper function to get the surprisal and frequency values and length of each word in the text.
+    """Extract all word-level metrics: surprisal, frequency, length, and optionally parsing features.
 
-    :param target_text: str, the text to get metrics for.
+    This is the main entry point for computing word-level attributes for a piece of text.
+
+    :param target_text: the text to extract metrics for.
     :param surp_extractor: the surprisal extractor to use.
-    :param parsing_model: the spacy model to use for parsing the text.
-    :param parsing_mode: type of parsing to use. one of ['keep-first','keep-all','re-tokenize']
-    :param left_context_text: str or None, optional left context to prepend for surprisal extraction.
-    :param add_parsing_features: whether to add parsing features to the output.
-    :param overlap_size: int, the number of tokens to overlap between chunks if text is too long.
-    :param language: language of the text.
-    :param disregard_punctuation: whether to disregard punctuation in word length computation.
-    :return: pd.DataFrame, each row represents a word, its length, surprisal and frequency.
+    :param parsing_model: spaCy model for linguistic features (POS, NER, dependencies, etc.).
+    :param parsing_mode: tokenization alignment strategy for spaCy parsing.
+    :param left_context_text: optional left context for surprisal conditioning.
+    :param add_parsing_features: whether to include spaCy parsing features.
+    :param overlap_size: token overlap between chunks for long texts.
+    :param language: language code for frequency lookup.
+    :param disregard_punctuation: whether to strip punctuation when computing word length.
+    :return: DataFrame where each row is a word with its metrics.
     """
 
     target_text_reformatted = clean_text(target_text)
@@ -242,6 +225,8 @@ def get_metrics(
 
 
 if __name__ == "__main__":
+    from text_metrics.surprisal.factory import create_surprisal_extractor
+
     text = """Many of us know we don't get enough sleep, but imagine if there was a simple solution:
     getting up later. In a speech at the British Science Festival, Dr. Paul Kelley from Oxford University
     said schools should stagger their starting times to work with the natural rhythms of their students.
@@ -250,8 +235,8 @@ if __name__ == "__main__":
     question = "Which university is Dr. Paul Kelley from?"
 
     model_name = "gpt2"
-    surp_extractor = get_surp_extractor(
-        extractor_type=SurpExtractorType.CAT_CTX_LEFT,
+    surp_extractor = create_surprisal_extractor(
+        extractor_type=SurprisalExtractorType.CAT_CTX_LEFT,
         model_name=model_name,
         hf_access_token="",
     )
@@ -267,52 +252,3 @@ if __name__ == "__main__":
     )
 
     print(metrics.head(5).to_markdown())
-
-    extractor_type_lst = [
-        SurpExtractorType.CAT_CTX_LEFT,
-        SurpExtractorType.CAT_CTX_LEFT,
-    ]
-    metrics_df = None
-    surp_lsts = []
-    surp_name_lsts = []
-    for i, extractor_type in enumerate(extractor_type_lst):
-        surp_extractor = get_surp_extractor(
-            model_name=model_name, extractor_type=extractor_type
-        )
-        q = question if i > 0 else None
-        metrics = get_metrics(
-            target_text=text,
-            surp_extractor=surp_extractor,
-            parsing_model=None,
-            parsing_mode=None,
-            left_context_text=q,
-            add_parsing_features=False,
-            overlap_size=512,
-        )
-        surp_col_name = f"{extractor_type.value}_{'Q_P' if i > 0 else 'P'}_Surprisal"
-        metrics.rename(
-            columns={f"{model_name}_Surprisal": surp_col_name},
-            inplace=True,
-        )
-        surp_lsts.append(metrics[surp_col_name].values.tolist())
-        surp_name_lsts.append(surp_col_name)
-
-        if metrics_df is None:
-            metrics_df = metrics
-        else:
-            columns_to_use = metrics.columns.difference(metrics_df.columns)
-            metrics_df = metrics_df.merge(
-                metrics[columns_to_use], left_index=True, right_index=True
-            )
-
-    generate_html_for_texts(
-        titles=surp_name_lsts,
-        texts=[text] * len(surp_name_lsts),
-        weights_list=surp_lsts,
-        output_file_name="colorized_texts_w_surp.html",
-        color_normalizing_factor=10,
-        cmap=matplotlib.colormaps.get_cmap("Blues"),
-        additional_note="Question: " + question,
-    )
-
-    metrics_df.to_csv("metrics_df.csv", index=False)

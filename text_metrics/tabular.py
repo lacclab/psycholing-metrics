@@ -1,37 +1,39 @@
+"""Metric extraction for tabular text data (one word per row)."""
+
 from typing import List
 
 import pandas as pd
 import tqdm
 
-from text_metrics.ling_metrics_funcs import get_metrics
-from text_metrics.surprisal_extractors.extractor_switch import get_surp_extractor
-from text_metrics.surprisal_extractors.extractors_constants import SurpExtractorType
+from text_metrics.metrics import get_metrics
+from text_metrics.surprisal.factory import create_surprisal_extractor
+from text_metrics.surprisal.types import SurprisalExtractorType
 
 
-def add_metrics_tabular_text(
+def add_metrics_to_tabular_text(
     tabular_text: pd.DataFrame,
     surprisal_extraction_model_names: List[str],
-    surp_extractor_type: SurpExtractorType = SurpExtractorType.CAT_CTX_LEFT,
+    surp_extractor_type: SurprisalExtractorType = SurprisalExtractorType.CAT_CTX_LEFT,
     model_target_device: str = "cpu",
 ) -> pd.DataFrame:
-    """
-    Adds metrics to each row in the tabular_text DataFrame.
+    """Add word-level metrics to a tabular text DataFrame.
 
-    :param tabular_text: The input DataFrame with tabular text data, where each row represents
-        a word that was read in a given trial. Should have columns - ['item', 'wordnum', 'word']
-    :param surprisal_extraction_model_names: The names of the models to extract surprisal values from.
-    :param surp_extractor_type: The type of surprisal extractor to use. Defaults to CAT_CTX_LEFT.
-    :param model_target_device: The device to run the model on. Defaults to "cpu".
-    :return: The tabular_text DataFrame with added columns for surprisal, frequency, and word length metrics.
+    Each row in the input represents a word from a trial. Words are grouped by 'item'
+    and reassembled into sentences for metric extraction, then merged back.
+
+    :param tabular_text: DataFrame with columns ['item', 'wordnum', 'word'].
+    :param surprisal_extraction_model_names: HuggingFace model names for surprisal.
+    :param surp_extractor_type: which extraction strategy to use.
+    :param model_target_device: device for the models.
+    :return: the input DataFrame enriched with surprisal, frequency, and word length columns.
     """
 
-    # Group by item and join all words
     grouped_text = tabular_text.groupby(["item"])["word"].apply(list)
     grouped_text = grouped_text.apply(lambda text: " ".join(text))
 
     metric_dfs = []
     for model_name in surprisal_extraction_model_names:
-        surp_extractor = get_surp_extractor(
+        surp_extractor = create_surprisal_extractor(
             extractor_type=surp_extractor_type,
             model_name=model_name,
             model_target_device=model_target_device,
@@ -73,5 +75,5 @@ def add_metrics_tabular_text(
 
 if __name__ == "__main__":
     stim = pd.read_csv("stim.csv", keep_default_na=False)
-    tabular_text_enriched = add_metrics_tabular_text(stim, ["gpt2"])
+    tabular_text_enriched = add_metrics_to_tabular_text(stim, ["gpt2"])
     tabular_text_enriched.to_csv("stim_with_surprisal.csv", index=False)

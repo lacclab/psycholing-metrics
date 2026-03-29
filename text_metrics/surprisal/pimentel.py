@@ -1,3 +1,9 @@
+"""Corrected surprisal extraction per Pimentel & Meister (2024).
+
+Uses a Bag-of-Words language model approach to properly compute word probabilities,
+fixing the issues with the standard concatenation approach.
+"""
+
 from typing import List, Tuple
 
 import pandas as pd
@@ -10,16 +16,16 @@ from text_metrics.pimentel_word_prob.wordsprobability.models import (
     get_model,
 )
 from text_metrics.pimentel_word_prob.wordsprobability.models.bow_lm import BaseBOWModel
-from text_metrics.surprisal_extractors.text_cat_extractor import CatCtxLeftSurpExtractor
-from text_metrics.utils import remove_redundant_left_context
+from text_metrics.surprisal.concatenated import ConcatenatedSurprisalExtractor
+from text_metrics.text_processing import trim_left_context
 
 
-class PimentelSurpExtractor(CatCtxLeftSurpExtractor):
-    """Unlike for the other extractors, here `surprise` doesnt return logits and offsetts,
-    because the aggregation process is different. Thus, surprise returns the final surp-per-word dataframe.
+class PimentelSurprisalExtractor(ConcatenatedSurprisalExtractor):
+    """Corrected surprisal computation per Pimentel & Meister (2024).
 
-    Args:
-        CatCtxLeftSurpExtractor (_type_): _description_
+    Unlike other extractors, compute_surprisal() returns a DataFrame directly
+    because the word-level aggregation process differs from the standard approach.
+    Only supports models registered in the pimentel_word_prob MODELS registry.
     """
 
     def __init__(
@@ -39,7 +45,7 @@ class PimentelSurpExtractor(CatCtxLeftSurpExtractor):
         )
         if model_name not in MODELS:
             raise ValueError(
-                f"""Model name {model_name} is currently not supported for PimentelSurpExtractor,
+                f"""Model name {model_name} is currently not supported for PimentelSurprisalExtractor,
                 The supported models are: {list(MODELS.keys())}
                 """
             )
@@ -47,7 +53,7 @@ class PimentelSurpExtractor(CatCtxLeftSurpExtractor):
             model_name=model_name, model=self.model, tokenizer=self.tokenizer
         )
 
-    def _full_context_to_probs_and_offsets(
+    def _compute_log_probs_with_chunking(
         self, full_context: str, overlap_size: int, allow_overlap: bool, max_ctx: int
     ) -> Tuple[Tensor, List[Tuple[int]], List[Tensor]]:
         if allow_overlap:
@@ -69,24 +75,14 @@ class PimentelSurpExtractor(CatCtxLeftSurpExtractor):
 
         return surp_df
 
-    def surprise_full_text(
+    def _compute_surprisal_full_text(
         self,
         target_text: str,
         left_context_text: str | None = None,
         overlap_size: int | None = None,
         allow_overlap: bool = False,
     ) -> pd.DataFrame:
-        """Get the surprisal values for each word in the target text.
-
-        Args:
-            target_text (str): the text to get surprisal values for.
-            left_context_text (str | None, optional): the left context to consider. Defaults to None.
-            overlap_size (int | None, optional): the overlap size to use when considering the left context. Defaults to None.
-            allow_overlap (bool, optional): whether to allow overlap between the left context and the target text. Defaults to False.
-
-        Returns:
-            pd.DataFrame: the surprisal values for each word in the target text.
-        """
+        """Compute surprisal for the full text (context + target) and return as DataFrame."""
         if allow_overlap:
             assert overlap_size is not None, "overlap_size must be specified"
 
@@ -97,11 +93,10 @@ class PimentelSurpExtractor(CatCtxLeftSurpExtractor):
                 max_ctx = int(1e6)
 
             if left_context_text is not None and len(left_context_text) > 0:
-                # than the max context, we remove the redundant left context tokens that cannot be used in-context with the target text
-                left_context_text = remove_redundant_left_context(
+                left_context_text = trim_left_context(
                     self.tokenizer,
                     left_context_text=left_context_text,
-                    max_ctx_in_tokens=max_ctx,
+                    max_tokens=max_ctx,
                 )
 
                 full_context = left_context_text + " " + target_text
@@ -112,7 +107,7 @@ class PimentelSurpExtractor(CatCtxLeftSurpExtractor):
                 f"Stride size {overlap_size} is larger than the maximum context size {max_ctx}"
             )
 
-            dataframe_surps = self._full_context_to_probs_and_offsets(
+            dataframe_surps = self._compute_log_probs_with_chunking(
                 full_context=full_context,
                 overlap_size=overlap_size,
                 allow_overlap=allow_overlap,
@@ -121,14 +116,22 @@ class PimentelSurpExtractor(CatCtxLeftSurpExtractor):
 
         return dataframe_surps
 
-    def surprise(
+    def compute_surprisal(
         self,
         target_text: str,
         left_context_text: str | None = None,
         overlap_size: int | None = None,
         allow_overlap: bool = False,
     ) -> pd.DataFrame:
-        dataframe_surps = self.surprise_full_text(
+        """Compute corrected word-level surprisal values.
+
+        :param target_text: the text to compute surprisal for.
+        :param left_context_text: optional prefix context.
+        :param overlap_size: token overlap for chunking.
+        :param allow_overlap: whether to allow chunking.
+        :return: DataFrame with 'Word' and 'Surprisal' columns for the target text.
+        """
+        dataframe_surps = self._compute_surprisal_full_text(
             target_text=target_text,
             left_context_text=left_context_text,
             overlap_size=overlap_size,
@@ -139,7 +142,6 @@ class PimentelSurpExtractor(CatCtxLeftSurpExtractor):
         )
 
         if left_context_text is not None and len(left_context_text) > 0:
-            # remove the records that are not part of the target text
             left_ctx_len_in_words = len(left_context_text.split())
             dataframe_surps = dataframe_surps.iloc[left_ctx_len_in_words:]
 

@@ -1,12 +1,20 @@
+"""Base class for all surprisal extractors."""
+
 from typing import List, Tuple
 
 import numpy as np
 import torch
 
-from text_metrics.utils import init_tok_n_model
+from text_metrics.model_loader import load_tokenizer_and_model
 
 
 class BaseSurprisalExtractor:
+    """Abstract base for computing word-level surprisal from causal language models.
+
+    Handles model/tokenizer initialization, input tokenization, log probability
+    computation, and chunking for texts that exceed the model's context window.
+    """
+
     def __init__(
         self,
         model_name: str,
@@ -16,7 +24,7 @@ class BaseSurprisalExtractor:
         hf_access_token: str | None = None,
     ):
         self.extractor_type_name = extractor_type_name
-        self.tokenizer, self.model = init_tok_n_model(
+        self.tokenizer, self.model = load_tokenizer_and_model(
             model_name=model_name,
             device=model_target_device,
             hf_access_token=hf_access_token,
@@ -24,20 +32,27 @@ class BaseSurprisalExtractor:
 
         self.model_name = model_name
 
-        # if the model is pythia model, save the checkpoint name
         if "pythia" in model_name:
             self.pythia_checkpoint = pythia_checkpoint
             assert self.pythia_checkpoint is not None, (
                 "Pythia model requires a checkpoint name"
             )
 
-    def surprise(
+    def compute_surprisal(
         self,
         target_text: str,
         left_context_text: str | None = None,
         overlap_size: int = 512,
         allow_overlap: bool = False,
     ) -> Tuple[np.ndarray, List[Tuple[int]]]:
+        """Compute token-level surprisal values for the target text.
+
+        :param target_text: the text to compute surprisal for.
+        :param left_context_text: optional left context to condition on.
+        :param overlap_size: token overlap between chunks for long texts.
+        :param allow_overlap: whether to allow chunking for long texts.
+        :return: (log_probs, offset_mapping) - arrays of per-token surprisal and character offsets.
+        """
         raise NotImplementedError
 
     def _create_input_tokens(
@@ -69,15 +84,8 @@ class BaseSurprisalExtractor:
         is_last_chunk: bool,
     ):
         output = self.model(tensor_input, labels=tensor_input)
-        shift_logits = output["logits"][
-            ..., :-1, :
-        ].contiguous()  # remove the last token from the logits
-
-        #  This shift is necessary because the labels are shifted by one position to the right
-        # (because the logits are w.r.t the next token)
-        shift_labels = tensor_input[
-            ..., 1:
-        ].contiguous()  #! remove the first token from the labels,
+        shift_logits = output["logits"][..., :-1, :].contiguous()
+        shift_labels = tensor_input[..., 1:].contiguous()
 
         log_probs = torch.nn.functional.cross_entropy(
             shift_logits.view(-1, shift_logits.size(-1)),
@@ -88,30 +96,22 @@ class BaseSurprisalExtractor:
         shift_labels = shift_labels[0]
 
         if is_last_chunk:
-            # remove the eos_token log_prob
             log_probs = log_probs[:-1]
             shift_labels = shift_labels[:-1]
 
         return log_probs, shift_labels
 
-    def _full_context_to_probs_and_offsets(
+    def _compute_log_probs_with_chunking(
         self, full_context: str, overlap_size: int, allow_overlap: bool, max_ctx: int
     ) -> Tuple[torch.Tensor, List[Tuple[int]], List[torch.Tensor]]:
-        """This function calculates the surprisal of a full_context using a language model.
+        """Compute log probabilities for text, splitting into chunks if it exceeds max context.
 
-        Args:
-            full_context (str): The text for which to calculate surprisal.
-            overlap_size (int): A number of tokens to overlap between chunks in case the full_context is too long.
-            allow_overlap (bool): If True, the full_context will be split into chunks with overlap_size tokens.
-            max_ctx (int): The maximum context size of the model.
-
-        Raises:
-            ValueError: In case the full_context is too long and allow_overlap is False.
-
-        Returns:
-            all_log_probs (torch.Tensor): The log probabilities of the full_context.
-            offset_mapping (List[Tuple[int]]): The offset mapping of the full_context.
-            accumulated_tokenized_text (List[torch.Tensor]): The tokenized text of the full_context.
+        :param full_context: the text to compute log probs for.
+        :param overlap_size: number of tokens to overlap between chunks.
+        :param allow_overlap: if True, split long text into overlapping chunks.
+        :param max_ctx: the model's maximum context size.
+        :raises ValueError: if text is too long and allow_overlap is False.
+        :return: (all_log_probs, offset_mapping, accumulated_tokenized_text)
         """
         start_ind = 0
         accumulated_tokenized_text = []
@@ -140,7 +140,6 @@ class BaseSurprisalExtractor:
                 tensor_input, is_last_chunk
             )
 
-            # Handle the case where the target_text is too long for the model
             offset = 0 if start_ind == 0 else overlap_size - 1
             all_log_probs = torch.cat([all_log_probs, log_probs[offset:]])
             accumulated_tokenized_text += shift_labels[offset:]
@@ -171,12 +170,19 @@ class BaseSurprisalExtractor:
 
         return all_log_probs, offset_mapping, accumulated_tokenized_text
 
-    def surprise_target_only(
+    def compute_surprisal_no_context(
         self, target_text: str, allow_overlap: bool = False, overlap_size: int = 512
     ) -> Tuple[np.ndarray, List[Tuple[int]]]:
+        """Compute surprisal for target text without any left context.
+
+        :param target_text: the text to compute surprisal for.
+        :param allow_overlap: whether to allow chunking for long texts.
+        :param overlap_size: token overlap between chunks.
+        :return: (log_probs, offset_mapping)
+        """
         if allow_overlap:
             assert overlap_size is not None, "overlap_size must be specified"
-        full_context = target_text  # even if there isn't left context, we add a space at the beginning to make sure this word is tokenized as the same token always
+        full_context = target_text
 
         with torch.no_grad():
             try:
@@ -189,14 +195,11 @@ class BaseSurprisalExtractor:
             )
 
             all_log_probs, offset_mapping, accumulated_tokenized_text = (
-                self._full_context_to_probs_and_offsets(
+                self._compute_log_probs_with_chunking(
                     full_context, overlap_size, allow_overlap, max_ctx
                 )
             )
 
-        # The accumulated_tokenized_text is the text we extract surprisal values for
-        # It is after removing the BOS/EOS tokens
-        # Make sure the accumulated_tokenized_text is equal to the original target_text
         assert (
             accumulated_tokenized_text
             == self.tokenizer(full_context, add_special_tokens=False)["input_ids"]
