@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "text-metrics"
+version = "2.0.0"
+description = "Word-level linguistic metric extraction (surprisal, frequency, length, parsing features)"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "Omer Shubi", email = "omer.shubi@gmail.com"},
+    {name = "Yoav Meiri"},
+]
+requires-python = ">=3.10"
+keywords = ["nlp", "surprisal", "psycholinguistics", "eye-tracking", "word-frequency", "language-model"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Linguistic",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = [
+    "pandas>=2.1.0",
+    "numpy>=1.20.3",
+    "torch>=2.0.0",
+    "transformers>=4.40.1",
+    "accelerate",
+    "wordfreq>=3.0.3",
+    "spacy>=3.0.0",
+    "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+    "tqdm",
+    "sentence-splitter",
+]
+
+[project.urls]
+Homepage = "https://github.com/lacclab/text-metrics"
+Repository = "https://github.com/lacclab/text-metrics"
+Issues = "https://github.com/lacclab/text-metrics/issues"
+
+[tool.setuptools.packages.find]
+include = ["text_metrics*"]
+
+[tool.setuptools.package-data]
+text_metrics = ["data/*.tsv"]

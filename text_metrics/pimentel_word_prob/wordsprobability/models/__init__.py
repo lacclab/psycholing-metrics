@@ -1,15 +1,15 @@
 from .bow_lm import (
-    EnglishGpt2Small,
-    EnglishGpt2Medium,
     EnglishGpt2Large,
+    EnglishGpt2Medium,
+    EnglishGpt2Small,
     EnglishGpt2Xl,
-    EnglishPythia70M,
-    EnglishPythia160M,
-    EnglishPythia410M,
     EnglishPythia14B,
     EnglishPythia28B,
     EnglishPythia69B,
+    EnglishPythia70M,
     EnglishPythia120B,
+    EnglishPythia160M,
+    EnglishPythia410M,
 )
 
 MODELS = {

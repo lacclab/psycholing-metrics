@@ -1,13 +1,14 @@
 import argparse
+import os
 from typing import List, Optional
+
 import pandas as pd
 
 from text_metrics.pimentel_word_prob.wordsprobability.models import (
-    get_model,
     get_bow_symbol,
+    get_model,
 )
 from text_metrics.pimentel_word_prob.wordsprobability.utils import constants
-import os
 
 
 def get_args():
@@ -123,7 +124,7 @@ def main():
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     text = ["Hi, my name is John. I like playing sports."]
-    from text_metrics.utils import init_tok_n_model
+    from text_metrics.model_loader import load_tokenizer_and_model as init_tok_n_model
 
     model_name = "EleutherAI/pythia-70m"
     tokenizer, model = init_tok_n_model(model_name=model_name, device="cuda")

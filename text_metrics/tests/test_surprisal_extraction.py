@@ -1,11 +1,11 @@
 import unittest
-from text_metrics.utils import clean_text
-from text_metrics.ling_metrics_funcs import get_surprisal
-from text_metrics.surprisal_extractors.base_extractor import CatCtxLeftSurpExtractor
+
+from text_metrics.metrics import get_surprisal
+from text_metrics.surprisal.concatenated import ConcatenatedSurprisalExtractor
+from text_metrics.text_processing import clean_text
 
 
 class TestSurprisalExtraction(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         with open("text_metrics/tests/below_2048.txt", "r") as file:
@@ -24,14 +24,16 @@ class TestSurprisalExtraction(unittest.TestCase):
     def test_surprisal_extraction(self):
         for model_name in self.model_names:
             with self.subTest(model_name=model_name):
-                surp_extractor = CatCtxLeftSurpExtractor(
+                surp_extractor = ConcatenatedSurprisalExtractor(
                     model_name=model_name,
+                    extractor_type_name="ConcatenatedSurprisalExtractor",
                     model_target_device="cuda:0",
                 )
                 print(f"Model: {model_name}")
                 try:
                     _ = get_surprisal(
                         clean_text(self.below_2048),
+                        surp_extractor=surp_extractor,
                         overlap_size=500,
                     )
                     _ = get_surprisal(
