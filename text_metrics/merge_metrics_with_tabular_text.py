@@ -1,83 +1,72 @@
-import subprocess
 from typing import List
 
 import pandas as pd
-import spacy
 import tqdm
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from utils import get_metrics
-
-try:
-    _ = spacy.load("en_core_web_sm")
-except OSError:
-    print(
-        "Downloading spacy model: en_core_web_sm (python -m spacy download en_core_web_sm)"
-    )
-    command = "python -m spacy download en_core_web_sm"
-    subprocess.run(command, shell=True)
+from text_metrics.ling_metrics_funcs import get_metrics
+from text_metrics.surprisal_extractors.extractor_switch import get_surp_extractor
+from text_metrics.surprisal_extractors.extractors_constants import SurpExtractorType
 
 
 def add_metrics_tabular_text(
-    tabular_text: pd.DataFrame, surprisal_extraction_model_names: List[str]
+    tabular_text: pd.DataFrame,
+    surprisal_extraction_model_names: List[str],
+    surp_extractor_type: SurpExtractorType = SurpExtractorType.CAT_CTX_LEFT,
+    model_target_device: str = "cpu",
 ) -> pd.DataFrame:
     """
-    Adds metrics to each row in the tabular_text DataFrame
+    Adds metrics to each row in the tabular_text DataFrame.
 
-    :param tabular_text: The input DataFrame with tabular text data, where each row represents a word that was read in a given trial.
-                        Should have columns - ['item', 'wordnum', 'word']
-    :param surprisal_extraction_model_names: The names of the model/tokenizer to extract surprisal values from.
+    :param tabular_text: The input DataFrame with tabular text data, where each row represents
+        a word that was read in a given trial. Should have columns - ['item', 'wordnum', 'word']
+    :param surprisal_extraction_model_names: The names of the models to extract surprisal values from.
+    :param surp_extractor_type: The type of surprisal extractor to use. Defaults to CAT_CTX_LEFT.
+    :param model_target_device: The device to run the model on. Defaults to "cpu".
     :return: The tabular_text DataFrame with added columns for surprisal, frequency, and word length metrics.
-
-    >>> et_data = load_et_data() # some function to load the eye tracking report
-    >>> et_data_enriched = add_metrics_tabular_text(tabular_text=et_data, surprisal_extraction_model_names=['gpt2'])
-
     """
-
-    # Extract metrics for all paragraph-level pairs
-    metric_dfs = []
-    # Remove duplicates
 
     # Group by item and join all words
     grouped_text = tabular_text.groupby(["item"])["word"].apply(list)
     grouped_text = grouped_text.apply(lambda text: " ".join(text))
 
-    tokenizers = [
-        AutoTokenizer.from_pretrained(model_name)
-        for model_name in surprisal_extraction_model_names
-    ]
-    models = [
-        AutoModelForCausalLM.from_pretrained(model_name)
-        for model_name in surprisal_extraction_model_names
-    ]
-
-    for index, sentence in tqdm.tqdm(
-        grouped_text.items(), total=len(grouped_text), desc="Extracting metrics"
-    ):
-        merged_df = get_metrics(
-            text=sentence,
-            models=models,
-            tokenizers=tokenizers,
-            model_names=surprisal_extraction_model_names,
+    metric_dfs = []
+    for model_name in surprisal_extraction_model_names:
+        surp_extractor = get_surp_extractor(
+            extractor_type=surp_extractor_type,
+            model_name=model_name,
+            model_target_device=model_target_device,
         )
-        merged_df["item"] = index
-        merged_df.reset_index(inplace=True)
-        merged_df["index"] += 1
-        merged_df = merged_df.rename({"index": "wordnum"}, axis=1)
-        metric_dfs.append(merged_df)
+        for index, sentence in tqdm.tqdm(
+            grouped_text.items(), total=len(grouped_text),
+            desc=f"Extracting metrics ({model_name})",
+        ):
+            merged_df = get_metrics(
+                target_text=sentence,
+                surp_extractor=surp_extractor,
+                parsing_model=None,
+                parsing_mode=None,
+                add_parsing_features=False,
+            )
+            merged_df["item"] = index
+            merged_df.reset_index(inplace=True)
+            merged_df["index"] += 1
+            merged_df = merged_df.rename({"index": "wordnum"}, axis=1)
+            metric_dfs.append(merged_df)
+
     metric_df = pd.concat(metric_dfs, axis=0)
 
-    # Join metrics with original data
     tabular_text_enriched = tabular_text.merge(
         metric_df,
         how="left",
-        suffixes=("", "_SHUBI"),
+        suffixes=("", "_metric"),
         on=["item", "wordnum"],
         validate="many_to_one",
     )
 
     tabular_text_enriched.drop(["Word"], axis=1, inplace=True)
-    tabular_text_enriched["subtlex_Frequency"].replace(0, "NA", inplace=True)
+    tabular_text_enriched["subtlex_Frequency"] = tabular_text_enriched[
+        "subtlex_Frequency"
+    ].replace(0, "NA")
     return tabular_text_enriched
 
 

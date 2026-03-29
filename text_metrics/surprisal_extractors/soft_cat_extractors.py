@@ -1,4 +1,3 @@
-import spacy
 from typing import List, Tuple
 
 import numpy as np
@@ -36,7 +35,7 @@ class SoftCatCtxSurpExtractor(BaseSurprisalExtractor):
     def _get_embedded_left_context(self, left_context_text: str, device: str):
         raise NotImplementedError
 
-    def _eoncode_target_text(self, target_text: str):
+    def _encode_target_text(self, target_text: str):
         target_encodings = self.tokenizer(
             target_text,
             truncation=True,
@@ -136,7 +135,7 @@ class SoftCatCtxSurpExtractor(BaseSurprisalExtractor):
         with torch.no_grad():
             left_context_text = left_context_text.strip() + " "
             target_encodings, target_labels, target_offset_mappings = (
-                self._eoncode_target_text(target_text)
+                self._encode_target_text(target_text)
             )
 
             full_embeddings, target_text_onset = self._create_embedding_level_input(

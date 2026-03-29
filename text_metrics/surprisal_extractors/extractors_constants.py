@@ -8,7 +8,7 @@ class SurpExtractorType(Enum):
     """
     l_rep = averaged_representations(l)
     full_context = l_rep * t
-    Dimensionsof the embedding level input: (1 + No. tokens in t, hidden_size)
+    Dimensions of the embedding level input: (1 + No. tokens in t, hidden_size)
     """
 
     SOFT_CAT_WHOLE_CTX_LEFT = "SoftCatWholeCtxSurpExtractor"
@@ -16,7 +16,7 @@ class SurpExtractorType(Enum):
     """
     l_sentences = concat([averaged_representations(sentence) for sentence in l])
     full_context = l_sentences * t 
-    Dimensionsof the embedding level input: (No. sentences in L + No. tokens in t, hidden_size)
+    Dimensions of the embedding level input: (No. sentences in L + No. tokens in t, hidden_size)
     """
 
     SOFT_CAT_SENTENCES = "SoftCatSentencesSurpExtractor"

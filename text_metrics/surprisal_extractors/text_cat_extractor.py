@@ -23,7 +23,7 @@ class CatCtxLeftSurpExtractor(BaseSurprisalExtractor):
             hf_access_token,
         )
 
-    def _ommit_left_ctx_from_surp_res(
+    def _omit_left_ctx_from_surp_res(
         self,
         target_text_char_onset: int,
         all_log_probs: torch.Tensor,
@@ -145,7 +145,7 @@ class CatCtxLeftSurpExtractor(BaseSurprisalExtractor):
         all_log_probs = np.asarray(all_log_probs.cpu())
 
         target_text_log_probs, target_text_offset_mapping = (
-            self._ommit_left_ctx_from_surp_res(
+            self._omit_left_ctx_from_surp_res(
                 target_text_char_onset, all_log_probs, offset_mapping
             )
         )

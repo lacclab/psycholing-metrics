@@ -32,21 +32,11 @@ def get_surprisal(
     A surprisal of a word is the sum of the surprisal of the subwords
     (as split by the tokenizer) that make up the word.
 
-    :param text: str, the text to get surprisal values for.
-    :param model: the model to extract surprisal values from.
-    :param tokenizer: how to tokenize the text. Should match the model input expectations.
+    :param target_text: str, the text to get surprisal values for.
+    :param surp_extractor: the surprisal extractor to use.
+    :param overlap_size: int, the number of tokens to overlap between chunks if text is too long.
+    :param left_context_text: str or None, optional left context to prepend.
     :return: pd.DataFrame, each row represents a word and its surprisal.
-
-    >>> tokenizer = AutoTokenizer.from_pretrained('gpt2')
-    >>> model = AutoModelForCausalLM.from_pretrained('gpt2')
-    >>> text = "hello, how are you?"
-    >>> surprisals = get_surprisal(text=text,tokenizer=tokenizer,model=model)
-    >>> surprisals
-         Word  Surprisal
-    0  hello,  19.789963
-    1     how  12.335088
-    2     are   5.128458
-    3    you?   3.704563
     """
 
     if surp_extractor.extractor_type_name not in [
@@ -109,9 +99,8 @@ def get_frequency(text: str, language: str) -> pd.DataFrame:
         ],  # minimum equal to ~36.5
     }
     data_path = files("text_metrics").joinpath("data/SUBTLEXus74286wordstextversion_lower.tsv")
-    data = data_path.open("rb")
     subtlex = pd.read_csv(
-        data,
+        data_path,
         sep="\t",
         index_col=0,
     )
@@ -197,45 +186,31 @@ def get_metrics(
     """
     Wrapper function to get the surprisal and frequency values and length of each word in the text.
 
-    :param text: str, the text to get metrics for.
-    :param model: the model to extract surprisal values from.
-    :param tokenizer: how to tokenize the text. Should match the model input expectations.
+    :param target_text: str, the text to get metrics for.
+    :param surp_extractor: the surprisal extractor to use.
     :param parsing_model: the spacy model to use for parsing the text.
     :param parsing_mode: type of parsing to use. one of ['keep-first','keep-all','re-tokenize']
+    :param left_context_text: str or None, optional left context to prepend for surprisal extraction.
     :param add_parsing_features: whether to add parsing features to the output.
+    :param overlap_size: int, the number of tokens to overlap between chunks if text is too long.
     :param language: language of the text.
     :param disregard_punctuation: whether to disregard punctuation in word length computation.
     :return: pd.DataFrame, each row represents a word, its length, surprisal and frequency.
-
-
-    >>> tokenizer = AutoTokenizer.from_pretrained('gpt2')
-    >>> model = AutoModelForCausalLM.from_pretrained('gpt2')
-    >>> text = "hello, how are you?"
-    >>> words_with_metrics = get_metrics(text=text,tokenizers=[tokenizer],models=[model], model_names=['gpt2'])
-    >>> words_with_metrics
-            Word  Length  Wordfreq_Frequency  subtlex_Frequency  gpt2_Surprisal
-    0  hello,       5           14.217323          10.701528       19.789963
-    1     how       3            9.166697           8.317353       12.335088
-    2     are       3            7.506353           7.548023        5.128458
-    3    you?       3            6.710284           4.541699        3.704563
     """
 
     target_text_reformatted = clean_text(target_text)
     left_context_text_reformatted = (
         clean_text(left_context_text) if left_context_text is not None else None
     )
-    surprisals = []
     surprisal = get_surprisal(
         target_text=target_text_reformatted,
         left_context_text=left_context_text_reformatted,
         surp_extractor=surp_extractor,
         overlap_size=overlap_size,
     )
-
     surprisal.rename(
         columns={"Surprisal": f"{surp_extractor.model_name}_Surprisal"}, inplace=True
     )
-    surprisals.append(surprisal)
 
     frequency = get_frequency(text=target_text_reformatted, language=language)
     word_length = get_word_length(
@@ -243,8 +218,7 @@ def get_metrics(
     )
 
     merged_df = word_length.join(frequency.drop("Word", axis=1))
-    for surprisal in surprisals:
-        merged_df = merged_df.join(surprisal.drop("Word", axis=1))
+    merged_df = merged_df.join(surprisal.drop("Word", axis=1))
 
     if add_parsing_features:
         assert (
@@ -263,13 +237,6 @@ def get_metrics(
 
 
 if __name__ == "__main__":
-    # text = """Illegal downloading is a kind of "moral squalor" and theft, as much as reaching in to
-    # someone\'s pocket and stealing their wallet is theft, says author Philip Pullman. In an article
-    # for Index on Censorship, Pullman, who is president of the Society of Authors, makes a robust defence
-    # of copyright laws. He is highly critical of Internet users who think it is OK to download music or
-    # books without paying for them.""".replace("\n", " ").replace("    ", "")
-    # question = "Who does Pullman criticize?"
-
     text = """Many of us know we don't get enough sleep, but imagine if there was a simple solution:
     getting up later. In a speech at the British Science Festival, Dr. Paul Kelley from Oxford University
     said schools should stagger their starting times to work with the natural rhythms of their students.
@@ -277,38 +244,6 @@ if __name__ == "__main__":
     obesity and other health problems).""".replace("\n", " ").replace("    ", "")
     question = "Which university is Dr. Paul Kelley from?"
 
-    # -----------------------------------------
-    # et_data = pd.read_csv(
-    #     "/data/home/shared/onestop/processed/ia_data_enriched_360_05052024.csv",
-    #     engine="pyarrow",
-    # )
-    # mean_rt = (
-    #     et_data.query(
-    #         f'unique_paragraph_id == "1_9_Ele_1" and question == "{question}" and reread == 0'
-    #     )
-    #     .groupby(["IA_ID", "IA_LABEL", "has_preview", "is_in_aspan"])["IA_DWELL_TIME"]
-    #     .mean()
-    #     .reset_index()
-    # )
-
-    # generate_html_for_texts(
-    #     titles=["Reading Times Heatmap - Gathering", "Reading Times Heatmap - Hunting"],
-    #     texts=[text] * 2,
-    #     weights_list=[
-    #         mean_rt.query("has_preview == 'Gathering'")["IA_DWELL_TIME"],
-    #         mean_rt.query("has_preview == 'Hunting'")["IA_DWELL_TIME"],
-    #     ],
-    #     output_file_name="Reading_times_heatmap.html",
-    #     color_normalizing_factor=350,
-    #     cmap=matplotlib.colormaps.get_cmap("Greens"),
-    #     additional_note="Question: " + question,
-    #     aspan_flags_list=[
-    #         mean_rt.query("has_preview == 'Gathering'")["is_in_aspan"].values,
-    #         mean_rt.query("has_preview == 'Hunting'")["is_in_aspan"].values,
-    #     ],
-    # )
-
-    # pythia 70m
     model_name = "gpt2"
     surp_extractor = get_surp_extractor(
         extractor_type=SurpExtractorType.CAT_CTX_LEFT,
@@ -316,28 +251,23 @@ if __name__ == "__main__":
         hf_access_token="",
     )
     parsing_model = spacy.load("en_core_web_sm")
-    q = question
 
     metrics = get_metrics(
         target_text=text,
         surp_extractor=surp_extractor,
         parsing_model=parsing_model,
         parsing_mode="re-tokenize",
-        left_context_text=q,
+        left_context_text=question,
         add_parsing_features=True,
-        # overlap_size=512,
     )
 
     print(metrics.head(5).to_markdown())
-    # ------------------------------------------------------------------
-    metrics_df = None
+
     extractor_type_lst = [
-        SurpExtractorType.CAT_CTX_LEFT,  #! Fixed! don't remove!
         SurpExtractorType.CAT_CTX_LEFT,
-        # SurpExtractorType.SOFT_CAT_WHOLE_CTX_LEFT,
-        # SurpExtractorType.SOFT_CAT_SENTENCES,
+        SurpExtractorType.CAT_CTX_LEFT,
     ]
-    base_surp_lst = []
+    metrics_df = None
     surp_lsts = []
     surp_name_lsts = []
     for i, extractor_type in enumerate(extractor_type_lst):
@@ -359,25 +289,12 @@ if __name__ == "__main__":
             columns={f"{model_name}_Surprisal": surp_col_name},
             inplace=True,
         )
-
-        # if i == 0:
-        #     base_surp_lst = metrics[surp_col_name].values.tolist()
-        # else:
-        #     curr_surp_lst = metrics[surp_col_name].values.tolist()
-        #     surp_lsts.append(
-        #         [
-        #             curr_surp / base_surp
-        #             for curr_surp, base_surp in zip(curr_surp_lst, base_surp_lst)
-        #         ]
-        #     )
-        #     surp_name_lsts.append(surp_col_name)
         surp_lsts.append(metrics[surp_col_name].values.tolist())
         surp_name_lsts.append(surp_col_name)
 
         if metrics_df is None:
             metrics_df = metrics
         else:
-            # merge on index
             columns_to_use = metrics.columns.difference(metrics_df.columns)
             metrics_df = metrics_df.merge(
                 metrics[columns_to_use], left_index=True, right_index=True

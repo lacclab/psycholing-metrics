@@ -11,7 +11,8 @@ def _get_lmzoo_surprisal(text: str, model: str) -> pd.DataFrame:
     """
 
     df = zoo.get_surprisals(zoo.get_registry()[model], [text])
-    df = df.reset_index(drop=True).rename(columns=['Word', 'Surprisal'])
+    df.columns = ['Word', 'Surprisal']
+    df = df.reset_index(drop=True)
     return df
 
 

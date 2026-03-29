@@ -115,19 +115,16 @@ def extract_metrics_for_text_df(
     get_metrics_kwargs: dict | None = None,
 ) -> pd.DataFrame:
     """This function extracts word level characteristics
-    (Length, frequency, surprisal) from a text_df
+    (Length, frequency, surprisal) from a text_df.
     This function allows adding prefixes and suffixes to
-    the text and extract metrics for them as well (or omit them)
+    the text and extract metrics for them as well (or omit them).
 
     Args:
         text_df (pd.DataFrame): A dataframe where each row has text identifying columns,
             main text column (string) and possibly prefix and suffix columns (strings)
         text_col_name (str): The name of the column in text_df that contains the main text
         text_key_cols (List[str]): The columns in text_df that identify the text
-        model (Union[AutoModelForCausalLM, GPTNeoXForCausalLM]): A language model from which
-            surprisal values will be extracted
-        model_name (str): The name of the model
-        tokenizer (Union[AutoTokenizer, GPTNeoXTokenizerFast]): The tokenizer for the model
+        surp_extractor (BaseSurprisalExtractor): The surprisal extractor to use
         ordered_prefix_col_names (List[str], optional): A list of column names in text_df
             that contain prefixes. The order in which they appear in the list is the order
             in which they will be added to the text. Defaults to [].
@@ -337,18 +334,17 @@ def add_metrics_to_word_level_eye_tracking_report(
     model_target_device: str = "cpu",
     hf_access_token: str | None = None,
 ) -> pd.DataFrame:
-    """This function adds metrics to the eye_tracking_data dataframe
+    """This function adds metrics to the eye_tracking_data dataframe.
 
     Args:
         eye_tracking_data (pd.DataFrame): A dataframe with eye tracking data
-        surprisal_extraction_model_names (List[str]): The name of the models to extract surprisal
+        surprisal_extraction_model_names (List[str]): The names of the models to extract surprisal
             values from (huggingface models)
+        textual_item_key_cols (List[str]): The columns that identify textual items
         spacy_model_name (str): The name of the spacy model to use for parsing the text
+        surp_extractor_type (SurpExtractorType): The type of surprisal extractor to use
         parsing_mode (str): Type of parsing to use. one of
             ['keep-first','keep-all','re-tokenize']
-        add_question_in_prompt (bool, optional): If True, the question will be added to the prompt
-            for surprisal extraction, but the question itself will not be included in the metrics.
-            (no eye tracking data for the question). Defaults to False.
         model_target_device (str, optional): The device to move the model to. Defaults to "cpu".
         hf_access_token (str, optional): A huggingface access token. Defaults to None.
 
@@ -409,38 +405,6 @@ def add_metrics_to_word_level_eye_tracking_report(
 
 
 if __name__ == "__main__":
-    # text_df = pd.DataFrame(
-    #     {
-    #         "Prefix": ["pre 11", "pre 12", "pre 21", "pre 22"],
-    #         "Target_Text": [
-    #             "Is this the real life?",
-    #             "Is this just fantasy?",
-    #             "Caught in a landslide,",
-    #             "no escape from reality",
-    #         ],
-    #         "Phrase": [1, 2, 1, 2],
-    #         "Line": [1, 1, 2, 2],
-    #     }
-    # )
-
-    # text_df_w_metrics = extract_metrics_for_text_df_multiple_hf_models(
-    #     text_df=text_df,
-    #     text_col_name="Target_Text",
-    #     text_key_cols=["Phrase", "Line"],
-    #     surprisal_extraction_model_names=[
-    #         "gpt2",
-    #         "EleutherAI/pythia-70m",
-    #         "state-spaces/mamba-130m-hf",
-    #     ],
-    #     surp_extractor_type=extractors_constants.SurpExtractorType.CAT_CTX_LEFT,
-    #     add_parsing_features=False,
-    #     model_target_device="cuda",
-    #     # arguments for the function extract_metrics_for_text_df
-    #     extract_metrics_for_text_df_kwargs={
-    #         "ordered_prefix_col_names": ["Prefix"],
-    #     },
-    # )
-
     df = pd.read_csv(
         "ln_shared_data/onestop/processed/ia_data_enriched_360_05052024.csv",
     ).drop(
@@ -482,41 +446,3 @@ if __name__ == "__main__":
     ]
     for column in columns_to_shift:
         df[f"prev_{column}"] = df.groupby(group_columns)[column].shift(1)
-
-    #!-----------------------------------
-    # et_data = break_down_p_id(et_data)
-    # # et_data = et_data[et_data["batch"] == 1]
-    # et_data = et_data.drop(
-    #     columns=["gpt2_Surprisal", "Wordfreq_Frequency", "subtlex_Frequency", "Length"]
-    # )
-    # et_data = add_col_not_num_or_punc(et_data)
-
-    # et_data_enriched = add_metrics_to_eye_tracking(
-    #     eye_tracking_data=et_data.copy(),
-    #     surprisal_extraction_model_names=["EleutherAI/pythia-70m"],
-    #     surp_extractor_type=extractor_switch.SurpExtractorType.CAT_CTX_LEFT,
-    #     spacy_model_name="en_core_web_sm",
-    #     parsing_mode="re-tokenize",
-    #     add_question_in_prompt=True,
-    #     model_target_device="cuda:1",
-    # )
-    # # Save the enriched data
-    # et_data_enriched.to_csv(
-    #     "enriched_eye_tracking_data_enriched_surp_CAT_CTX_LEFT.csv",
-    #     index=False,
-    # )
-
-    # et_data_enriched = add_metrics_to_eye_tracking(
-    #     eye_tracking_data=et_data.copy(),
-    #     surprisal_extraction_model_names=["EleutherAI/pythia-70m"],
-    #     surp_extractor_type=extractors_constants.SurpExtractorType.SOFT_CAT_SENTENCES,
-    #     spacy_model_name="en_core_web_sm",
-    #     parsing_mode="re-tokenize",
-    #     add_question_in_prompt=True,
-    #     model_target_device="cuda:1",
-    # )
-    # # Save the enriched data
-    # et_data_enriched.to_csv(
-    #     "enriched_eye_tracking_data_enriched_surp_SOFT_CAT_SENTENCES.csv",
-    #     index=False,
-    # )

@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import torch
 from spacy.language import Language
-from torch.nn.functional import log_softmax
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -85,9 +84,7 @@ def get_reduced_pos(pos: str) -> str:
     """
     Returns the reduced pos tag of the pos tag.
     """
-    return REDUCED_POS.get(
-        pos, "UNKNOWN"
-    )  # TODO Why should there be UNKNOWN? Why not map to a reduced pos?
+    return REDUCED_POS.get(pos, "UNKNOWN")
 
 
 def get_direction(head_idx: int, word_idx: int) -> str:
@@ -214,87 +211,15 @@ def get_parsing_features(
         res.append(word_features)
 
     final_res = pd.DataFrame(res)
-    if mode == "keep-all":
-        pass
-
     assert pd.__version__ > "2.1.0", f"""Your pandas version is {pd.__version__}
             Please upgrade pandas to version 2.1.0 or higher to use mode={mode}.
             (requires pd.DataFrame.map)""".replace("\n", "")
-    if mode == "keep-first":
-        final_res = final_res.map(
-            lambda x: x[0] if isinstance(x, list) and len(x) > 0 else x
-        )
-    elif mode == "re-tokenize":
+    if mode in ("keep-first", "re-tokenize"):
         final_res = final_res.map(
             lambda x: x[0] if isinstance(x, list) and len(x) > 0 else x
         )
 
     return final_res
-
-
-def _get_surp(text: str, tokenizer, model) -> list[tuple[str, float]]:
-    """
-    Extract surprisal values from model for text tokenized by tokenizer.
-
-    :param text: the  text to get surprisal values for.
-    :param model: model used to get surprisal values.
-    :param tokenizer: should be compatible with model.
-    :return: list of tuples of (subword, surprisal values).
-    """
-    # text = text  # + tokenizer.eos_token  # add beginning of sentence token
-    ids = torch.tensor(tokenizer.encode(text))
-    toks = tokenizer.tokenize(text)
-
-    with torch.no_grad():
-        outputs = model(ids)
-
-    # log softmax converted to base 2.
-    # More numerically stable than -log2(softmax(outputs[0], dim=1))
-    log_probs = -(1 / torch.log(torch.tensor(2.0))) * log_softmax(outputs[0], dim=1)
-
-    out = []
-    for ind, word_id in enumerate(ids, 0):
-        word_log_prob = float(log_probs[ind - 1, word_id])
-        out.append((toks[ind], word_log_prob))
-    return out
-
-
-def _join_surp(words: list[str], tok_surps: list[tuple[str, float]]):
-    """
-    Add up the subword surprisals of each word.
-
-    :param words: list of actual words
-    :param tok_surps: list of tuples of (subword, subword surprisal value)
-    :return: list of tuples of (word, word surprisal value)
-    """
-    out = []
-    word_surp, word_ind, within_word_position = 0, 0, 0
-    word_till_now = ""
-    for tok, tok_surp in tok_surps:
-        tok_str = tok[1:] if tok.startswith("Ġ") else tok
-        tok_str = tok_str.replace("Â", "").replace(
-            "âĤ¬", "€"
-        )  # Converts back euro and gbp sign
-        assert (
-            words[word_ind][within_word_position : within_word_position + len(tok_str)]
-            == tok_str
-        ), (
-            words[word_ind][within_word_position : within_word_position + len(tok_str)]
-            + "!="
-            + tok_str
-        )
-        word_surp += tok_surp
-        within_word_position += len(tok_str)
-        word_till_now += tok_str
-
-        if word_till_now == words[word_ind]:
-            out.append((words[word_ind], word_surp))
-            word_ind += 1
-            word_surp, within_word_position = 0, 0
-            word_till_now = ""
-    assert word_ind == len(words)
-    assert len(out) == len(words)
-    return out
 
 
 def add_col_not_num_or_punc(df: pd.DataFrame):
@@ -366,8 +291,6 @@ def init_tok_n_model(
         Tuple[Union[AutoTokenizer, GPTNeoXTokenizerFast],
               Union[AutoModelForCausalLM, GPTNeoXForCausalLM]]: tokenizer, model
     """
-
-    # TODO merge AutoTokenizer/ModelForCausalLM with/without hf_access_token?
     model_variant = model_name.split("/")[-1]
 
     if any(
@@ -411,11 +334,9 @@ def init_tok_n_model(
         )
 
     elif "mamba" in model_variant:
-        # print('loaded with bfloat16')
         model = MambaForCausalLM.from_pretrained(
             model_name,
             device_map="auto",
-            #  torch_dtype=torch.bfloat16
         )
 
     elif "Llama" in model_variant:
@@ -438,8 +359,6 @@ def init_tok_n_model(
 
     else:
         raise ValueError("Unsupported LLM variant")
-
-    # model = model.to(device)
 
     return tokenizer, model
 
@@ -494,11 +413,12 @@ def remove_redundant_left_context(
     left_context_text: str,
     max_ctx_in_tokens: int,
 ):
-    """In surprise, we return surprisals only for the target_text. This function removes the redundant left context from the target_text
+    """Trims the left context from the beginning so it fits within the model's max context window.
 
     Args:
-        target_text (str): _description_
-        left_context_text (str): _description_
+        tokenizer: the tokenizer to use for encoding.
+        left_context_text (str): the left context text to trim.
+        max_ctx_in_tokens (int): the maximum number of tokens allowed.
     """
     # Split the left context into words
     words = left_context_text.split()
@@ -511,34 +431,3 @@ def remove_redundant_left_context(
     trimmed_left_context = " ".join(words)
 
     return trimmed_left_context
-
-
-# if __name__ == "__main__":
-# text = (
-#     """
-# 113, 115, 117, and 118 are ... The International Union of Pure and Applied Chemistry (IUPAC) is the global organization that controls
-# chemical names. IUPAC confirmed the new elements on 30 December, 2015 after examining studies dating back to 2004.
-# The scientists who found them must now think of formal names for the elements, which have the atomic numbers,
-# 113, 115, 117, and 118. The atomic number is the number of protons in an element’s atomic nucleus.
-# """.replace(
-#         "\n", ""
-#     )
-#     .replace("\t", "")
-#     .replace("    ", "")
-# )
-# model_names = ["gpt2", "gpt2-medium"]
-
-# models_tokenizers = [init_tok_n_model(model_name) for model_name in model_names]
-# tokenizers = [tokenizer for tokenizer, _ in models_tokenizers]
-# models = [model for _, model in models_tokenizers]
-
-# surp_res = get_metrics(
-#     text=text,
-#     models=models,
-#     tokenizers=tokenizers,
-#     model_names=model_names,
-#     parsing_model=spacy.load("en_core_web_sm"),
-#     add_parsing_features=False,
-# )
-
-# print(surp_res.head(10).to_markdown())

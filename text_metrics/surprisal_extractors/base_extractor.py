@@ -30,6 +30,7 @@ class BaseSurprisalExtractor:
             ), "Pythia model requires a checkpoint name"
 
     def surprise(
+        self,
         target_text: str,
         left_context_text: str | None = None,
         overlap_size: int = 512,
@@ -82,11 +83,6 @@ class BaseSurprisalExtractor:
             reduction="none",
         )
 
-        # varify that the average of the log_probs is equal to the loss
-        # TODO Is 15.5726 close enough to 15.5728? I think so, stop go away.
-        # assert torch.isclose(
-        #     torch.exp(sum(log_probs) / len(log_probs)), torch.exp(output["loss"]), atol=1e-5,
-        # )
 
         shift_labels = shift_labels[0]
 
@@ -160,8 +156,6 @@ class BaseSurprisalExtractor:
                 break
 
             if start_ind == 0:
-                "If we got here, the context is too long"
-                # find the context length in tokens
                 context_length = len(self.tokenizer.encode(full_context))
                 if allow_overlap:
                     print(

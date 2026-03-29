@@ -1,7 +1,5 @@
 from setuptools import setup
 
-
-# TODO improve with https://python-poetry.org/
 setup(
     name="text_metrics",
     version="1.1.12",
