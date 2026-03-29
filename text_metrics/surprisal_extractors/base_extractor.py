@@ -51,8 +51,10 @@ class BaseSurprisalExtractor:
 
         tokens_lst = encodings["input_ids"]
         if is_last_chunk:
-            tokens_lst.append(self.tokenizer.eos_token_id)
-        if start_ind == 0:
+            eos_id = self.tokenizer.eos_token_id
+            if eos_id is not None:
+                tokens_lst.append(eos_id)
+        if start_ind == 0 and bos_token_added is not None:
             tokens_lst = [bos_token_added] + tokens_lst
         tensor_input = torch.tensor(
             [tokens_lst],

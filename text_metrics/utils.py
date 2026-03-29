@@ -369,19 +369,20 @@ def init_tok_n_model(
 
     # TODO merge AutoTokenizer/ModelForCausalLM with/without hf_access_token?
     model_variant = model_name.split("/")[-1]
+    model_variant_lower = model_variant.lower()
 
     if any(
-        variant in model_variant
+        variant in model_variant_lower
         for variant in ["gpt-neo", "gpt", "opt", "mamba", "rwkv"]
     ):
         tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
 
-    elif "gpt-neox" in model_variant:
+    elif "gpt-neox" in model_variant_lower:
         tokenizer = GPTNeoXTokenizerFast.from_pretrained(model_name)
 
     elif "Eagle" in model_variant:  # RWKV V5
         tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
-    elif any(variant in model_variant for variant in ["Llama", "Mistral", "gemma"]):
+    elif any(variant in model_variant_lower for variant in ["llama", "mistral", "gemma"]):
         assert (
             hf_access_token is not None
         ), f"Please provide the HuggingFace access token to load {model_name}"
@@ -389,7 +390,7 @@ def init_tok_n_model(
             model_name, use_fast=True, token=hf_access_token
         )
 
-    elif "pythia" in model_variant:
+    elif "pythia" in model_variant_lower:
         tokenizer = AutoTokenizer.from_pretrained(
             model_name, revision=pythia_checkpoint, use_fast=True
         )
@@ -397,7 +398,7 @@ def init_tok_n_model(
     else:
         raise ValueError("Unsupported LLM variant")
 
-    if any(variant in model_variant for variant in ["gpt-neo", "gpt", "opt", "rwkv"]):
+    if any(variant in model_variant_lower for variant in ["gpt-neo", "gpt", "opt", "rwkv"]):
         model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
 
     elif "Eagle" in model_variant:  # RWKV
@@ -405,12 +406,12 @@ def init_tok_n_model(
             model_name, device_map="auto", trust_remote_code=True
         ).to(torch.float32)
 
-    elif "pythia" in model_variant:
+    elif "pythia" in model_variant_lower:
         model = GPTNeoXForCausalLM.from_pretrained(
             model_name, revision=pythia_checkpoint, device_map="auto"
         )
 
-    elif "mamba" in model_variant:
+    elif "mamba" in model_variant_lower:
         # print('loaded with bfloat16')
         model = MambaForCausalLM.from_pretrained(
             model_name,
@@ -418,12 +419,12 @@ def init_tok_n_model(
             #  torch_dtype=torch.bfloat16
         )
 
-    elif "Llama" in model_variant:
+    elif "llama" in model_variant_lower:
         model = LlamaForCausalLM.from_pretrained(
             model_name, token=hf_access_token, device_map="auto"
         )
 
-    elif any(variant in model_variant for variant in ["gemma-2"]):
+    elif any(variant in model_variant_lower for variant in ["gemma-2"]):
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             token=hf_access_token,
@@ -431,7 +432,7 @@ def init_tok_n_model(
             torch_dtype=torch.bfloat16,
         )
 
-    elif any(variant in model_variant for variant in ["Mistral", "gemma"]):
+    elif any(variant in model_variant_lower for variant in ["mistral", "gemma"]):
         model = AutoModelForCausalLM.from_pretrained(
             model_name, token=hf_access_token, device_map="auto"
         )
@@ -465,6 +466,12 @@ def string_to_log_probs(string: str, probs: np.ndarray, offsets: list):
     """Given text and token-level log probabilities, aggregate the log probabilities to word-level log probabilities.
     Note: Assumes there is no whitespace in the end and the beginning of the string.
 
+    Handles byte-level BPE tokenizers (e.g. for Chinese) where multiple
+    sub-tokens may share the same character offset.  Once the current
+    word's end position is matched, remaining tokens with the same end
+    position are still accumulated into that word's probability before
+    moving on.
+
     Args:
         string (str): The input text
         probs (np.ndarray): Log probabilities for each token
@@ -478,12 +485,30 @@ def string_to_log_probs(string: str, probs: np.ndarray, offsets: list):
     word_mapping = get_word_mapping(words)
     cur_prob = 0
     cur_word_ind = 0
+    matched = False
     for i, (lp, ind) in enumerate(zip(probs, offsets)):
+        if cur_word_ind >= len(word_mapping):
+            # All words already matched; ignore trailing tokens
+            break
         cur_prob += lp
         if ind[1] == word_mapping[cur_word_ind][1]:
-            agg_log_probs.append(cur_prob)
-            cur_prob = 0
+            matched = True
+        elif matched:
+            # We matched on a previous token but this token has a different
+            # end offset -> commit the accumulated prob and start a new word
+            agg_log_probs.append(cur_prob - lp)
+            cur_prob = lp
             cur_word_ind += 1
+            matched = False
+            if cur_word_ind >= len(word_mapping):
+                break
+            if ind[1] == word_mapping[cur_word_ind][1]:
+                matched = True
+
+    # Commit the last word if it was matched
+    if matched and cur_word_ind < len(word_mapping):
+        agg_log_probs.append(cur_prob)
+        cur_word_ind += 1
 
     zipped_surp = list(zip(words, agg_log_probs))
     return agg_log_probs, zipped_surp
