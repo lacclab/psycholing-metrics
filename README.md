@@ -5,7 +5,8 @@ Extract word-level linguistic metrics from text: **surprisal** (primary focus), 
 ## Installation
 
 ```bash
-pip install text-metrics
+pip install psycholing-metrics
+python -m spacy download en_core_web_sm
 ```
 
 Or install directly from GitHub:
