@@ -171,6 +171,46 @@ The `SOFT_CAT_WHOLE_CTX_LEFT` and `SOFT_CAT_SENTENCES` extractors provide embedd
 - A word's surprisal is the sum of its sub-word token surprisals.
 - BOS representation is used when available (e.g., GPT-2), following Pimentel & Meister (2024).
 
+## Parsing Features
+
+`get_parsing_features` (from `text_metrics.text_processing`) extracts word-level linguistic features using spaCy. It can also be used standalone, without surprisal extraction:
+
+```python
+import spacy
+from text_metrics.text_processing import get_parsing_features
+
+nlp = spacy.load("en_core_web_sm")
+features = get_parsing_features("The cat sat on the mat.", nlp, mode="re-tokenize")
+```
+
+Output columns:
+
+| Column | Description |
+|--------|-------------|
+| `Word_idx` | 1-indexed word position |
+| `Token` | The word token |
+| `POS` | Universal POS tag (NOUN, VERB, ADJ, ...) |
+| `TAG` | Fine-grained POS tag (NN, VBD, JJ, ...) |
+| `Relationship` | Dependency relation to head (nsubj, dobj, prep, ...) |
+| `Morph` | Morphological features (tense, number, case, ...) |
+| `Entity` | Named entity type (PERSON, ORG, ...) or None |
+| `Is_Content_Word` | True for nouns, verbs, adjectives, adverbs |
+| `Reduced_POS` | Simplified POS: NOUN, VERB, ADJ, or FUNC |
+| `Head_word_idx` | Index of the dependency head word |
+| `n_Lefts` | Number of left dependents |
+| `n_Rights` | Number of right dependents |
+| `AbsDistance2Head` | Absolute distance to head word |
+| `Distance2Head` | Signed distance to head word |
+| `Head_Direction` | Direction to head: LEFT, RIGHT, or SELF |
+
+### Tokenization Modes
+
+The `mode` parameter controls how spaCy's tokenization aligns with whitespace-delimited words:
+
+- **`re-tokenize`** (default): Merges spaCy sub-tokens (e.g., "don't" → "don" + "'t") back into single words matching whitespace splits. Best for most use cases.
+- **`keep-first`**: Keeps only the first sub-token's features for compressed words (e.g., "don't" uses features of "don").
+- **`keep-all`**: Returns all sub-token features as lists for compressed words.
+
 ## Frequency
 
 Frequency is computed via [wordfreq](https://github.com/rspeer/wordfreq) and the SUBTLEX-US corpus:
