@@ -38,12 +38,12 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/lacclab/text-metrics"
-Repository = "https://github.com/lacclab/text-metrics"
-Issues = "https://github.com/lacclab/text-metrics/issues"
+Homepage = "https://github.com/lacclab/psycholing-metrics"
+Repository = "https://github.com/lacclab/psycholing-metrics"
+Issues = "https://github.com/lacclab/psycholing-metrics/issues"
 
 [tool.setuptools.packages.find]
-include = ["text_metrics*"]
+include = ["psycholing_metrics*"]
 
 [tool.setuptools.package-data]
-text_metrics = ["data/*.tsv"]
+psycholing_metrics = ["data/*.tsv"]

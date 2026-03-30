@@ -18,10 +18,10 @@ setup(
     author_email="tpimentelms@gmail.com",
     license="MIT",
     packages=[
-        "text_metrics.pimentel_word_prob",
-        "text_metrics.pimentel_word_prob.wordsprobability",
-        "text_metrics.pimentel_word_prob.wordsprobability.models",
-        "text_metrics.pimentel_word_prob.wordsprobability.utils",
+        "psycholing_metrics.pimentel_word_prob",
+        "psycholing_metrics.pimentel_word_prob.wordsprobability",
+        "psycholing_metrics.pimentel_word_prob.wordsprobability.models",
+        "psycholing_metrics.pimentel_word_prob.wordsprobability.utils",
     ],
     include_package_data=True,
     entry_points={

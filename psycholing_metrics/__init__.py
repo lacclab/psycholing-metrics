@@ -1,11 +1,11 @@
-"""text_metrics: Word-level linguistic metric extraction.
+"""psycholing_metrics: Word-level linguistic metric extraction.
 
 Extract surprisal, frequency, word length, and parsing features (POS, NER, morphology,
 dependencies) for any text. Designed for psycholinguistics and eye-tracking research.
 
 Quick start::
 
-    from text_metrics import get_metrics, create_surprisal_extractor, SurprisalExtractorType
+    from psycholing_metrics import get_metrics, create_surprisal_extractor, SurprisalExtractorType
 
     extractor = create_surprisal_extractor(
         extractor_type=SurprisalExtractorType.CAT_CTX_LEFT,
@@ -19,8 +19,8 @@ Quick start::
     )
 """
 
-from text_metrics.metrics import get_frequency, get_metrics, get_surprisal, get_word_length
-from text_metrics.surprisal import (
+from psycholing_metrics.metrics import get_frequency, get_metrics, get_surprisal, get_word_length
+from psycholing_metrics.surprisal import (
     BaseSurprisalExtractor,
     ConcatenatedSurprisalExtractor,
     InverseEffectExtractor,

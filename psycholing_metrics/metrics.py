@@ -9,9 +9,9 @@ import pandas as pd
 import spacy
 from wordfreq import tokenize, word_frequency
 
-from text_metrics.surprisal.base import BaseSurprisalExtractor
-from text_metrics.surprisal.types import SurprisalExtractorType
-from text_metrics.text_processing import (
+from psycholing_metrics.surprisal.base import BaseSurprisalExtractor
+from psycholing_metrics.surprisal.types import SurprisalExtractorType
+from psycholing_metrics.text_processing import (
     aggregate_token_log_probs,
     clean_text,
     get_parsing_features,
@@ -93,7 +93,7 @@ def get_frequency(text: str, language: str) -> pd.DataFrame:
             for word in words
         ],  # minimum equal to ~36.5
     }
-    data_path = files("text_metrics").joinpath(
+    data_path = files("psycholing_metrics").joinpath(
         "data/SUBTLEXus74286wordstextversion_lower.tsv"
     )
     subtlex = pd.read_csv(
@@ -225,7 +225,7 @@ def get_metrics(
 
 
 if __name__ == "__main__":
-    from text_metrics.surprisal.factory import create_surprisal_extractor
+    from psycholing_metrics.surprisal.factory import create_surprisal_extractor
 
     text = """Many of us know we don't get enough sleep, but imagine if there was a simple solution:
     getting up later. In a speech at the British Science Festival, Dr. Paul Kelley from Oxford University

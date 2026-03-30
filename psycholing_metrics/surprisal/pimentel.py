@@ -10,14 +10,14 @@ import pandas as pd
 import torch
 from torch._tensor import Tensor
 
-from text_metrics.pimentel_word_prob.wordsprobability.main import agg_surprisal_per_word
-from text_metrics.pimentel_word_prob.wordsprobability.models import (
+from psycholing_metrics.pimentel_word_prob.wordsprobability.main import agg_surprisal_per_word
+from psycholing_metrics.pimentel_word_prob.wordsprobability.models import (
     MODELS,
     get_model,
 )
-from text_metrics.pimentel_word_prob.wordsprobability.models.bow_lm import BaseBOWModel
-from text_metrics.surprisal.concatenated import ConcatenatedSurprisalExtractor
-from text_metrics.text_processing import trim_left_context
+from psycholing_metrics.pimentel_word_prob.wordsprobability.models.bow_lm import BaseBOWModel
+from psycholing_metrics.surprisal.concatenated import ConcatenatedSurprisalExtractor
+from psycholing_metrics.text_processing import trim_left_context
 
 
 class PimentelSurprisalExtractor(ConcatenatedSurprisalExtractor):

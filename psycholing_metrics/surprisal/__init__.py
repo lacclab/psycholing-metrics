@@ -9,16 +9,16 @@ This package provides multiple strategies for computing word-level surprisal:
 - InverseEffectExtractor: measures the effect of context on surprisal
 """
 
-from text_metrics.surprisal.base import BaseSurprisalExtractor
-from text_metrics.surprisal.concatenated import ConcatenatedSurprisalExtractor
-from text_metrics.surprisal.factory import create_surprisal_extractor
-from text_metrics.surprisal.inverse_effect import InverseEffectExtractor
-from text_metrics.surprisal.pimentel import PimentelSurprisalExtractor
-from text_metrics.surprisal.soft_concatenated import (
+from psycholing_metrics.surprisal.base import BaseSurprisalExtractor
+from psycholing_metrics.surprisal.concatenated import ConcatenatedSurprisalExtractor
+from psycholing_metrics.surprisal.factory import create_surprisal_extractor
+from psycholing_metrics.surprisal.inverse_effect import InverseEffectExtractor
+from psycholing_metrics.surprisal.pimentel import PimentelSurprisalExtractor
+from psycholing_metrics.surprisal.soft_concatenated import (
     SoftCatSentencesExtractor,
     SoftCatWholeCtxExtractor,
 )
-from text_metrics.surprisal.types import SurprisalExtractorType
+from psycholing_metrics.surprisal.types import SurprisalExtractorType
 
 __all__ = [
     "BaseSurprisalExtractor",

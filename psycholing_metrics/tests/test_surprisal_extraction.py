@@ -1,17 +1,17 @@
 import unittest
 
-from text_metrics.metrics import get_surprisal
-from text_metrics.surprisal.concatenated import ConcatenatedSurprisalExtractor
-from text_metrics.text_processing import clean_text
+from psycholing_metrics.metrics import get_surprisal
+from psycholing_metrics.surprisal.concatenated import ConcatenatedSurprisalExtractor
+from psycholing_metrics.text_processing import clean_text
 
 
 class TestSurprisalExtraction(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        with open("text_metrics/tests/below_2048.txt", "r") as file:
+        with open("psycholing_metrics/tests/below_2048.txt", "r") as file:
             cls.below_2048 = file.read()
 
-        with open("text_metrics/tests/over_2048.txt", "r") as file:
+        with open("psycholing_metrics/tests/over_2048.txt", "r") as file:
             cls.over_2048 = file.read()
 
         cls.model_names = [

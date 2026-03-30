@@ -14,8 +14,8 @@ import torch
 import tqdm
 from spacy.language import Language
 
-from text_metrics.metrics import get_metrics
-from text_metrics.surprisal import base, factory, types
+from psycholing_metrics.metrics import get_metrics
+from psycholing_metrics.surprisal import base, factory, types
 
 
 def create_text_input(

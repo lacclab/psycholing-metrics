@@ -6,9 +6,9 @@ keeping only cases where context actually reduced surprisal (positive effect).
 
 import pandas as pd
 
-from text_metrics.surprisal.base import BaseSurprisalExtractor
-from text_metrics.surprisal.types import SurprisalExtractorType
-from text_metrics.text_processing import aggregate_token_log_probs
+from psycholing_metrics.surprisal.base import BaseSurprisalExtractor
+from psycholing_metrics.surprisal.types import SurprisalExtractorType
+from psycholing_metrics.text_processing import aggregate_token_log_probs
 
 
 class InverseEffectExtractor(BaseSurprisalExtractor):
@@ -35,7 +35,7 @@ class InverseEffectExtractor(BaseSurprisalExtractor):
             hf_access_token=hf_access_token,
         )
 
-        from text_metrics.surprisal.factory import create_surprisal_extractor
+        from psycholing_metrics.surprisal.factory import create_surprisal_extractor
 
         self.target_extractor = create_surprisal_extractor(
             model_name=model_name,

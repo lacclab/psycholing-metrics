@@ -12,7 +12,7 @@ import spacy
 import torch
 from sentence_splitter import split_text_into_sentences
 
-from text_metrics.surprisal.base import BaseSurprisalExtractor
+from psycholing_metrics.surprisal.base import BaseSurprisalExtractor
 
 
 class SoftCatBaseExtractor(BaseSurprisalExtractor):

@@ -5,7 +5,7 @@ from transformers import (
     GPTNeoXTokenizerFast,
 )
 
-from text_metrics.text_processing import trim_left_context
+from psycholing_metrics.text_processing import trim_left_context
 
 
 class TestTrimLeftContext(unittest.TestCase):

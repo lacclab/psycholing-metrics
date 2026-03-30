@@ -4,9 +4,9 @@
   "python.testing.unittestArgs": [
     "-v",
     "-s",
-    "./text_metrics",
+    "./psycholing_metrics",
     "-p",
     "test_*.py"
   ],
-  "python.testing.pytestArgs": ["text_metrics"]
+  "python.testing.pytestArgs": ["psycholing_metrics"]
 }

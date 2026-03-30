@@ -5,7 +5,7 @@ from typing import List, Tuple
 import numpy as np
 import torch
 
-from text_metrics.model_loader import load_tokenizer_and_model
+from psycholing_metrics.model_loader import load_tokenizer_and_model
 
 
 class BaseSurprisalExtractor:

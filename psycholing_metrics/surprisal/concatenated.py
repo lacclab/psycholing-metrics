@@ -9,8 +9,8 @@ from typing import List, Tuple
 import numpy as np
 import torch
 
-from text_metrics.surprisal.base import BaseSurprisalExtractor
-from text_metrics.text_processing import trim_left_context
+from psycholing_metrics.surprisal.base import BaseSurprisalExtractor
+from psycholing_metrics.text_processing import trim_left_context
 
 
 class ConcatenatedSurprisalExtractor(BaseSurprisalExtractor):

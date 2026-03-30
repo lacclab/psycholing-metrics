@@ -5,9 +5,9 @@ from typing import List
 import pandas as pd
 import tqdm
 
-from text_metrics.metrics import get_metrics
-from text_metrics.surprisal.factory import create_surprisal_extractor
-from text_metrics.surprisal.types import SurprisalExtractorType
+from psycholing_metrics.metrics import get_metrics
+from psycholing_metrics.surprisal.factory import create_surprisal_extractor
+from psycholing_metrics.surprisal.types import SurprisalExtractorType
 
 
 def add_metrics_to_tabular_text(

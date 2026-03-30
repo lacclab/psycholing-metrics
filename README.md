@@ -1,4 +1,4 @@
-# Text Metrics
+# Psycholing Metrics
 
 Extract word-level linguistic metrics from text: **surprisal** (primary focus), **frequency**, **word length**, and **parsing features** (POS, NER, morphology, dependencies via spaCy).
 
@@ -12,14 +12,14 @@ python -m spacy download en_core_web_sm
 Or install directly from GitHub:
 
 ```bash
-pip install git+https://github.com/lacclab/text-metrics.git
+pip install git+https://github.com/lacclab/psycholing-metrics.git
 ```
 
 ## Quick Start
 
 ```python
 import spacy
-from text_metrics import get_metrics, create_surprisal_extractor, SurprisalExtractorType
+from psycholing_metrics import get_metrics, create_surprisal_extractor, SurprisalExtractorType
 
 text = "Many of us know we don't get enough sleep."
 
@@ -51,7 +51,7 @@ Output (one row per word):
 You can also call individual functions:
 
 ```python
-from text_metrics import get_surprisal, get_frequency, get_word_length
+from psycholing_metrics import get_surprisal, get_frequency, get_word_length
 
 surprisal_df = get_surprisal(text, surp_extractor=extractor)
 frequency_df = get_frequency(text, language="en")
@@ -64,8 +64,8 @@ Extract surprisal from multiple models at once using `extract_metrics_for_multip
 
 ```python
 import pandas as pd
-from text_metrics import SurprisalExtractorType
-from text_metrics.eye_tracking import extract_metrics_for_multiple_models
+from psycholing_metrics import SurprisalExtractorType
+from psycholing_metrics.eye_tracking import extract_metrics_for_multiple_models
 
 text_df = pd.DataFrame({
     "Phrase": [1, 2, 1, 2],
@@ -99,8 +99,8 @@ Add word-level metrics to an SR interest area report:
 
 ```python
 import pandas as pd
-from text_metrics import SurprisalExtractorType
-from text_metrics.eye_tracking import add_metrics_to_eye_tracking_report
+from psycholing_metrics import SurprisalExtractorType
+from psycholing_metrics.eye_tracking import add_metrics_to_eye_tracking_report
 
 df = pd.read_csv("path/to/interest_area_report.csv")
 
@@ -173,11 +173,11 @@ The `SOFT_CAT_WHOLE_CTX_LEFT` and `SOFT_CAT_SENTENCES` extractors provide embedd
 
 ## Parsing Features
 
-`get_parsing_features` (from `text_metrics.text_processing`) extracts word-level linguistic features using spaCy. It can also be used standalone, without surprisal extraction:
+`get_parsing_features` (from `psycholing_metrics.text_processing`) extracts word-level linguistic features using spaCy. It can also be used standalone, without surprisal extraction:
 
 ```python
 import spacy
-from text_metrics.text_processing import get_parsing_features
+from psycholing_metrics.text_processing import get_parsing_features
 
 nlp = spacy.load("en_core_web_sm")
 features = get_parsing_features("The cat sat on the mat.", nlp, mode="re-tokenize")
@@ -221,7 +221,7 @@ Frequency is computed via [wordfreq](https://github.com/rspeer/wordfreq) and the
 ## Package Structure
 
 ```
-text_metrics/
+psycholing_metrics/
 ├── __init__.py           # Public API exports
 ├── metrics.py            # get_metrics, get_surprisal, get_frequency, get_word_length
 ├── text_processing.py    # Text cleaning, parsing features, token aggregation

@@ -1,13 +1,13 @@
 """Factory function for creating surprisal extractors."""
 
-from text_metrics.surprisal.concatenated import ConcatenatedSurprisalExtractor
-from text_metrics.surprisal.inverse_effect import InverseEffectExtractor
-from text_metrics.surprisal.pimentel import PimentelSurprisalExtractor
-from text_metrics.surprisal.soft_concatenated import (
+from psycholing_metrics.surprisal.concatenated import ConcatenatedSurprisalExtractor
+from psycholing_metrics.surprisal.inverse_effect import InverseEffectExtractor
+from psycholing_metrics.surprisal.pimentel import PimentelSurprisalExtractor
+from psycholing_metrics.surprisal.soft_concatenated import (
     SoftCatSentencesExtractor,
     SoftCatWholeCtxExtractor,
 )
-from text_metrics.surprisal.types import SurprisalExtractorType
+from psycholing_metrics.surprisal.types import SurprisalExtractorType
 
 
 def create_surprisal_extractor(
