@@ -466,11 +466,13 @@ def string_to_log_probs(string: str, probs: np.ndarray, offsets: list):
     """Given text and token-level log probabilities, aggregate the log probabilities to word-level log probabilities.
     Note: Assumes there is no whitespace in the end and the beginning of the string.
 
-    Handles byte-level BPE tokenizers (e.g. for Chinese) where multiple
-    sub-tokens may share the same character offset.  Once the current
-    word's end position is matched, remaining tokens with the same end
-    position are still accumulated into that word's probability before
-    moving on.
+    Assigns each token to the word whose character range contains the
+    token's start position.  This is more robust than exact end-position
+    matching because:
+    - Byte-level BPE tokenizers (e.g. Chinese) may produce multiple
+      sub-tokens that share the same character offset.
+    - Chunked text can shift token offsets by ±1 at chunk boundaries
+      when the space-prefixed token includes the space in its range.
 
     Args:
         string (str): The input text
@@ -481,34 +483,21 @@ def string_to_log_probs(string: str, probs: np.ndarray, offsets: list):
         Tuple[List[float], List[Tuple[float]]]: The aggregated log probabilities for each word
     """
     words = string.split()
-    agg_log_probs = []
     word_mapping = get_word_mapping(words)
-    cur_prob = 0
+    n_words = len(words)
+    agg_log_probs = [0.0] * n_words
     cur_word_ind = 0
-    matched = False
-    for i, (lp, ind) in enumerate(zip(probs, offsets)):
-        if cur_word_ind >= len(word_mapping):
-            # All words already matched; ignore trailing tokens
-            break
-        cur_prob += lp
-        if ind[1] == word_mapping[cur_word_ind][1]:
-            matched = True
-        elif matched:
-            # We matched on a previous token but this token has a different
-            # end offset -> commit the accumulated prob and start a new word
-            agg_log_probs.append(cur_prob - lp)
-            cur_prob = lp
-            cur_word_ind += 1
-            matched = False
-            if cur_word_ind >= len(word_mapping):
-                break
-            if ind[1] == word_mapping[cur_word_ind][1]:
-                matched = True
 
-    # Commit the last word if it was matched
-    if matched and cur_word_ind < len(word_mapping):
-        agg_log_probs.append(cur_prob)
-        cur_word_ind += 1
+    for lp, (tok_start, tok_end) in zip(probs, offsets):
+        # Advance to the word that contains this token's start position.
+        # A token belongs to a word if its start falls within
+        # [word_start, word_end) or within the trailing space before the
+        # next word (word_end <= tok_start < next_word_start).
+        while cur_word_ind < n_words - 1 and tok_start >= word_mapping[cur_word_ind + 1][0]:
+            cur_word_ind += 1
+        if cur_word_ind >= n_words:
+            break
+        agg_log_probs[cur_word_ind] += lp
 
     zipped_surp = list(zip(words, agg_log_probs))
     return agg_log_probs, zipped_surp
