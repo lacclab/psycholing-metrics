@@ -1,5 +1,9 @@
 # Psycholing Metrics
 
+[![PyPI version](https://img.shields.io/pypi/v/psycholing-metrics)](https://pypi.org/project/psycholing-metrics/)
+[![Python versions](https://img.shields.io/pypi/pyversions/psycholing-metrics)](https://pypi.org/project/psycholing-metrics/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
 Extract word-level linguistic metrics from text: **surprisal** (primary focus), **frequency**, **word length**, and **parsing features** (POS, NER, morphology, dependencies via spaCy).
 
 ## Installation

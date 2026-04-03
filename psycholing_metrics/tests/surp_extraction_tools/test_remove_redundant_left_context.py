@@ -21,9 +21,7 @@ class TestTrimLeftContext(unittest.TestCase):
 
         for name, tokenizer in self.tokenizers.items():
             with self.subTest(tokenizer=name):
-                result = trim_left_context(
-                    tokenizer, left_context_text, max_tokens
-                )
+                result = trim_left_context(tokenizer, left_context_text, max_tokens)
 
                 result_tokens = tokenizer.encode(result)
                 self.assertLessEqual(len(result_tokens), max_tokens)

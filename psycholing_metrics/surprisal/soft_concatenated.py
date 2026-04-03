@@ -108,9 +108,7 @@ class SoftCatBaseExtractor(BaseSurprisalExtractor):
         self, full_embeddings: torch.Tensor, target_labels, target_text_onset: int
     ):
         output = self.model(inputs_embeds=full_embeddings)
-        shift_logits = output["logits"][
-            ..., target_text_onset:-2, :
-        ].contiguous()
+        shift_logits = output["logits"][..., target_text_onset:-2, :].contiguous()
 
         shift_labels = target_labels.contiguous()
 

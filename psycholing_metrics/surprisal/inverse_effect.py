@@ -66,7 +66,9 @@ class InverseEffectExtractor(BaseSurprisalExtractor):
         )
 
         dataframe_probs_baseline = pd.DataFrame(
-            aggregate_token_log_probs(target_text, baseline_surp[0], baseline_surp[1])[1],
+            aggregate_token_log_probs(target_text, baseline_surp[0], baseline_surp[1])[
+                1
+            ],
             columns=["Word", "Surprisal"],
         )
 

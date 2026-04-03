@@ -91,7 +91,9 @@ class ConcatenatedSurprisalExtractor(BaseSurprisalExtractor):
             assert overlap_size is not None, "overlap_size must be specified"
 
         if left_context_text in [None, ""]:
-            return self.compute_surprisal_no_context(target_text, allow_overlap, overlap_size)
+            return self.compute_surprisal_no_context(
+                target_text, allow_overlap, overlap_size
+            )
 
         with torch.no_grad():
             try:

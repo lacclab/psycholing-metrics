@@ -242,7 +242,9 @@ def get_word_offsets(words: List[str]):
     return offsets
 
 
-def aggregate_token_log_probs(text: str, token_log_probs: np.ndarray, token_offsets: list):
+def aggregate_token_log_probs(
+    text: str, token_log_probs: np.ndarray, token_offsets: list
+):
     """Aggregate token-level log probabilities to word-level.
 
     Sums log probabilities of sub-word tokens that belong to the same whitespace-delimited word.
