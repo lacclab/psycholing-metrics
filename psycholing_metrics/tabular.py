@@ -35,7 +35,7 @@ def add_metrics_to_tabular_text(
     grouped_text = tabular_text.groupby(["item"])["word"].apply(list)
     grouped_text = grouped_text.apply(lambda text: " ".join(text))
 
-    metric_dfs = []
+    metric_df = None
     for model_name in surprisal_extraction_model_names:
         for surp_extractor_type in surp_extractor_types:
             surp_extractor = create_surprisal_extractor(
@@ -43,6 +43,7 @@ def add_metrics_to_tabular_text(
                 model_name=model_name,
                 model_target_device=model_target_device,
             )
+            current_dfs = []
             for index, sentence in tqdm.tqdm(
                 grouped_text.items(),
                 total=len(grouped_text),
@@ -59,9 +60,22 @@ def add_metrics_to_tabular_text(
                 merged_df.reset_index(inplace=True)
                 merged_df["index"] += 1
                 merged_df = merged_df.rename({"index": "wordnum"}, axis=1)
-                metric_dfs.append(merged_df)
+                current_dfs.append(merged_df)
 
-    metric_df = pd.concat(metric_dfs, axis=0)
+            current_metric_df = pd.concat(current_dfs, axis=0)
+            if metric_df is None:
+                metric_df = current_metric_df
+            else:
+                cols_to_merge = current_metric_df.columns.difference(
+                    metric_df.columns
+                ).tolist()
+                cols_to_merge += ["item", "wordnum"]
+                metric_df = metric_df.merge(
+                    current_metric_df[cols_to_merge],
+                    how="left",
+                    on=["item", "wordnum"],
+                    validate="one_to_one",
+                )
 
     tabular_text_enriched = tabular_text.merge(
         metric_df,
