@@ -160,7 +160,9 @@ def extract_metrics_for_multiple_models(
     text_col_name: str,
     text_key_cols: List[str],
     surprisal_extraction_model_names: List[str],
-    surp_extractor_type: types.SurprisalExtractorType = types.SurprisalExtractorType.CAT_CTX_LEFT,
+    surp_extractor_types: (
+        types.SurprisalExtractorType | List[types.SurprisalExtractorType]
+    ) = types.SurprisalExtractorType.CAT_CTX_LEFT,
     add_parsing_features: bool = True,
     parsing_mode: (
         Literal["keep-first", "keep-all", "re-tokenize"] | None
@@ -171,17 +173,19 @@ def extract_metrics_for_multiple_models(
     extract_metrics_kwargs: dict | None = None,
     save_path: str | None = None,
 ) -> pd.DataFrame:
-    """Extract word-level metrics using multiple HuggingFace language models.
+    """Extract word-level metrics using multiple HuggingFace language models and extractor types.
 
-    Iterates over model names, creating a surprisal extractor for each and extracting
-    metrics. Surprisal columns from each model are incrementally merged. Non-surprisal
-    metrics (frequency, length, parsing) are only computed once with the first model.
+    Iterates over all (model, extractor type) combinations, creating a surprisal extractor
+    for each and extracting metrics. Each combination produces a uniquely named surprisal
+    column (e.g., ``gpt2_cat_Surprisal``, ``gpt2_pimentel_Surprisal``). Non-surprisal
+    metrics (frequency, length, parsing) are only computed once with the first combination.
 
     :param text_df: DataFrame where each row has text and identifying columns.
     :param text_col_name: column containing the main text string.
     :param text_key_cols: columns that uniquely identify each text.
     :param surprisal_extraction_model_names: HuggingFace model names to extract surprisal from.
-    :param surp_extractor_type: which extraction strategy to use.
+    :param surp_extractor_types: extraction strategy or list of strategies to use.
+        When a list is provided, surprisal is extracted for every (model, type) combination.
     :param add_parsing_features: whether to include spaCy parsing features.
     :param parsing_mode: tokenization alignment strategy for spaCy.
     :param spacy_model: the spaCy model instance.
@@ -189,13 +193,16 @@ def extract_metrics_for_multiple_models(
     :param hf_access_token: HuggingFace access token for gated models.
     :param extract_metrics_kwargs: additional kwargs for extract_metrics_for_text_df().
     :param save_path: if provided, save intermediate results to this CSV path.
-    :return: DataFrame with word-level metrics from all models.
+    :return: DataFrame with word-level metrics from all models and extractor types.
     """
     assert not (
         add_parsing_features is True and (parsing_mode is None or spacy_model is None)
     ), (
         "If add_parsing_features is True, both parsing_mode and spacy_model must be provided"
     )
+
+    if isinstance(surp_extractor_types, types.SurprisalExtractorType):
+        surp_extractor_types = [surp_extractor_types]
 
     if extract_metrics_kwargs is None:
         extract_metrics_kwargs = {}
@@ -208,56 +215,64 @@ def extract_metrics_for_multiple_models(
     get_metrics_kwargs["parsing_mode"] = parsing_mode
 
     metric_df = None
-    for i, model_name in enumerate(surprisal_extraction_model_names):
-        try:
-            if i == 0:
-                print("Extracting Frequency, Length")
-            print(f"Extracting surprisal using model: {model_name}")
-
-            surp_extractor = factory.create_surprisal_extractor(
-                extractor_type=surp_extractor_type,
-                model_name=model_name,
-                model_target_device=model_target_device,
-                hf_access_token=hf_access_token,
-            )
-
-            get_metrics_kwargs["add_parsing_features"] = (
-                True if metric_df is None and add_parsing_features else False
-            )
-            metric_dfs = extract_metrics_for_text_df(
-                text_df=text_df,
-                text_col_name=text_col_name,
-                text_key_cols=text_key_cols,
-                surp_extractor=surp_extractor,
-                get_metrics_kwargs=get_metrics_kwargs,
-                **extract_metrics_kwargs,
-            )
-
-            if metric_df is None:
-                metric_df = metric_dfs.copy()
-            else:
-                concatenated_metric_dfs = metric_dfs.copy()
-                cols_to_merge = concatenated_metric_dfs.columns.difference(
-                    metric_df.columns
-                ).tolist()
-                cols_to_merge += text_key_cols + ["index"]
-
-                metric_df = metric_df.merge(
-                    concatenated_metric_dfs[cols_to_merge],
-                    how="left",
-                    on=text_key_cols + ["index"],
-                    validate="one_to_one",
+    is_first = True
+    for model_name in surprisal_extraction_model_names:
+        for surp_extractor_type in surp_extractor_types:
+            try:
+                if is_first:
+                    print("Extracting Frequency, Length")
+                print(
+                    f"Extracting surprisal using model: {model_name}, "
+                    f"type: {surp_extractor_type.name}"
                 )
 
-            if save_path is not None:
-                _save_aggregated(metric_df, save_path, text_key_cols)
+                surp_extractor = factory.create_surprisal_extractor(
+                    extractor_type=surp_extractor_type,
+                    model_name=model_name,
+                    model_target_device=model_target_device,
+                    hf_access_token=hf_access_token,
+                )
 
-            del surp_extractor
-            gc.collect()
-            torch.cuda.empty_cache()
+                get_metrics_kwargs["add_parsing_features"] = (
+                    True if is_first and add_parsing_features else False
+                )
+                metric_dfs = extract_metrics_for_text_df(
+                    text_df=text_df,
+                    text_col_name=text_col_name,
+                    text_key_cols=text_key_cols,
+                    surp_extractor=surp_extractor,
+                    get_metrics_kwargs=get_metrics_kwargs,
+                    **extract_metrics_kwargs,
+                )
 
-        except Exception as e:
-            print(f"Error for {model_name}: {e}")
+                if metric_df is None:
+                    metric_df = metric_dfs.copy()
+                else:
+                    concatenated_metric_dfs = metric_dfs.copy()
+                    cols_to_merge = concatenated_metric_dfs.columns.difference(
+                        metric_df.columns
+                    ).tolist()
+                    cols_to_merge += text_key_cols + ["index"]
+
+                    metric_df = metric_df.merge(
+                        concatenated_metric_dfs[cols_to_merge],
+                        how="left",
+                        on=text_key_cols + ["index"],
+                        validate="one_to_one",
+                    )
+
+                if save_path is not None:
+                    _save_aggregated(metric_df, save_path, text_key_cols)
+
+                del surp_extractor
+                gc.collect()
+                torch.cuda.empty_cache()
+                is_first = False
+
+            except Exception as e:
+                print(
+                    f"Error for {model_name} with {surp_extractor_type.name}: {e}"
+                )
 
     return metric_df
 
@@ -290,7 +305,9 @@ def add_metrics_to_eye_tracking_report(
     surprisal_extraction_model_names: List[str],
     textual_item_key_cols: List[str],
     spacy_model_name: str,
-    surp_extractor_type: types.SurprisalExtractorType,
+    surp_extractor_types: (
+        types.SurprisalExtractorType | List[types.SurprisalExtractorType]
+    ),
     parsing_mode: Literal["keep-first", "keep-all", "re-tokenize"],
     model_target_device: str = "cpu",
     hf_access_token: str | None = None,
@@ -304,7 +321,7 @@ def add_metrics_to_eye_tracking_report(
     :param surprisal_extraction_model_names: HuggingFace model names for surprisal extraction.
     :param textual_item_key_cols: columns that identify unique textual items.
     :param spacy_model_name: name of the spaCy model to load.
-    :param surp_extractor_type: which extraction strategy to use.
+    :param surp_extractor_types: extraction strategy or list of strategies to use.
     :param parsing_mode: tokenization alignment strategy for spaCy.
     :param model_target_device: device for the models.
     :param hf_access_token: HuggingFace access token for gated models.
@@ -332,7 +349,7 @@ def add_metrics_to_eye_tracking_report(
         text_col_name="IA_LABEL",
         text_key_cols=textual_item_key_cols,
         surprisal_extraction_model_names=surprisal_extraction_model_names,
-        surp_extractor_type=surp_extractor_type,
+        surp_extractor_types=surp_extractor_types,
         parsing_mode=parsing_mode,
         spacy_model=spacy_model,
         model_target_device=model_target_device,

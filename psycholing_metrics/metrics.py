@@ -196,8 +196,10 @@ def get_metrics(
         surp_extractor=surp_extractor,
         overlap_size=overlap_size,
     )
+    surp_col_suffix = surp_extractor.extractor_type.column_suffix
     surprisal.rename(
-        columns={"Surprisal": f"{surp_extractor.model_name}_Surprisal"}, inplace=True
+        columns={"Surprisal": f"{surp_extractor.model_name}_{surp_col_suffix}_Surprisal"},
+        inplace=True,
     )
 
     frequency = get_frequency(text=target_text_reformatted, language=language)
