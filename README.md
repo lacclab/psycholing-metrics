@@ -88,13 +88,32 @@ metrics_df = extract_metrics_for_multiple_models(
     text_col_name="Target_Text",
     text_key_cols=["Line", "Phrase"],
     surprisal_extraction_model_names=["gpt2", "EleutherAI/pythia-70m"],
-    surp_extractor_type=SurprisalExtractorType.CAT_CTX_LEFT,
+    surp_extractor_types=SurprisalExtractorType.CAT_CTX_LEFT,
     add_parsing_features=False,
     model_target_device="cuda",
     extract_metrics_kwargs={
         "ordered_prefix_col_names": ["Prefix"],
     },
 )
+```
+
+To extract surprisal using multiple extractor types, pass a list to `surp_extractor_types`.
+This produces a separate column for each (model, type) combination:
+
+```python
+metrics_df = extract_metrics_for_multiple_models(
+    text_df=text_df,
+    text_col_name="Target_Text",
+    text_key_cols=["Line", "Phrase"],
+    surprisal_extraction_model_names=["gpt2"],
+    surp_extractor_types=[
+        SurprisalExtractorType.CAT_CTX_LEFT,
+        SurprisalExtractorType.PIMENTEL_CTX_LEFT,
+    ],
+    add_parsing_features=False,
+    model_target_device="cuda",
+)
+# Result columns: gpt2_cat_Surprisal, gpt2_pimentel_Surprisal, ...
 ```
 
 ## Eye-Tracking Integration
@@ -115,19 +134,21 @@ enriched_df = add_metrics_to_eye_tracking_report(
     spacy_model_name="en_core_web_sm",
     parsing_mode="re-tokenize",
     model_target_device="cuda",
-    surp_extractor_type=SurprisalExtractorType.CAT_CTX_LEFT,
+    surp_extractor_types=SurprisalExtractorType.CAT_CTX_LEFT,
 )
 ```
 
 ## Surprisal Extractors
 
-| Type | Description |
-|------|-------------|
-| `CAT_CTX_LEFT` | Standard text-level concatenation. The "buggy" version per [Pimentel & Meister (2024)](https://arxiv.org/abs/2406.14561). |
-| `PIMENTEL_CTX_LEFT` | Corrected surprisal computation per Pimentel & Meister (2024). |
-| `SOFT_CAT_WHOLE_CTX_LEFT` | Embedding-level: aggregates entire left context into one vector. |
-| `SOFT_CAT_SENTENCES` | Embedding-level: aggregates left context per-sentence. |
-| `INV_EFFECT_EXTRACTOR` | Measures how much context reduces surprisal. |
+| Type | Column Suffix | Description |
+|------|---------------|-------------|
+| `CAT_CTX_LEFT` | `cat` | Standard text-level concatenation. The "buggy" version per [Pimentel & Meister (2024)](https://arxiv.org/abs/2406.14561). |
+| `PIMENTEL_CTX_LEFT` | `pimentel` | Corrected surprisal computation per Pimentel & Meister (2024). |
+| `SOFT_CAT_WHOLE_CTX_LEFT` | `softwhole` | Embedding-level: aggregates entire left context into one vector. |
+| `SOFT_CAT_SENTENCES` | `softsent` | Embedding-level: aggregates left context per-sentence. |
+| `INV_EFFECT_EXTRACTOR` | `inveffect` | Measures how much context reduces surprisal. |
+
+The surprisal column name follows the pattern `{model_name}_{suffix}_Surprisal` (e.g., `gpt2_cat_Surprisal`). When using multiple extractor types, each produces its own column.
 
 ### Supported Models
 

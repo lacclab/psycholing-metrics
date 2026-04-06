@@ -6,6 +6,7 @@ import numpy as np
 import torch
 
 from psycholing_metrics.model_loader import load_tokenizer_and_model
+from psycholing_metrics.surprisal.types import SurprisalExtractorType
 
 
 class BaseSurprisalExtractor:
@@ -24,6 +25,7 @@ class BaseSurprisalExtractor:
         hf_access_token: str | None = None,
     ):
         self.extractor_type_name = extractor_type_name
+        self.extractor_type = SurprisalExtractorType(extractor_type_name)
         self.tokenizer, self.model = load_tokenizer_and_model(
             model_name=model_name,
             device=model_target_device,
