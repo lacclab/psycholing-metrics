@@ -68,12 +68,17 @@ def get_surprisal(
 def get_frequency(text: str, language: str) -> pd.DataFrame:
     """Compute word frequency (negative log2) for each word in text.
 
-    Uses both the wordfreq library and the SUBTLEX-US corpus.
-    Words are split by whitespace; punctuation is stripped before lookup.
-    Half harmonic mean is applied for compound words (e.g., freq("top-level") = harmonic mean of parts).
+    Primary source is the ``wordfreq`` library (Speer 2022), the frequency
+    source used by Wilcox et al. (2023, TACL) for cross-lingual reading
+    studies. For English only, the SUBTLEX-US corpus (Brysbaert & New 2009)
+    is also provided as ``subtlex_Frequency`` for comparability with prior
+    psycholinguistic work. Words are split by whitespace; for multi-token
+    lookups the harmonic mean of token frequencies is used.
 
     :param text: the text to get frequencies for.
-    :param language: language code (e.g. 'en').
+    :param language: language code (e.g. 'en'). SUBTLEX column is populated
+        only when ``language == 'en'`` (SUBTLEX-US is English-only); other
+        languages get ``float('inf')`` for that column.
     :return: DataFrame with 'Word', 'Wordfreq_Frequency', and 'subtlex_Frequency' columns.
 
     >>> text = "hello, how are you?"
@@ -93,31 +98,35 @@ def get_frequency(text: str, language: str) -> pd.DataFrame:
             for word in words
         ],  # minimum equal to ~36.5
     }
-    data_path = files("psycholing_metrics").joinpath(
-        "data/SUBTLEXus74286wordstextversion_lower.tsv"
-    )
-    subtlex = pd.read_csv(
-        data_path,
-        sep="\t",
-        index_col=0,
-    )
-    subtlex["Frequency"] = -np.log2(subtlex["Count"] / subtlex.sum().iloc[0])
 
-    subtlex_freqs = []
-    for word in words:
-        tokens = tokenize(word, lang=language)
-        one_over_result = 0.0
-        try:
-            for token in tokens:
-                one_over_result += 1.0 / subtlex.loc[token, "Frequency"]
-        except KeyError:
-            subtlex_freq = float("inf")
-        else:
-            subtlex_freq = (
-                1.0 / one_over_result if one_over_result != 0 else float("inf")
-            )
-        subtlex_freqs.append(subtlex_freq)
-    frequencies["subtlex_Frequency"] = subtlex_freqs
+    if language == "en":
+        data_path = files("psycholing_metrics").joinpath(
+            "data/SUBTLEXus74286wordstextversion_lower.tsv"
+        )
+        subtlex = pd.read_csv(
+            data_path,
+            sep="\t",
+            index_col=0,
+        )
+        subtlex["Frequency"] = -np.log2(subtlex["Count"] / subtlex.sum().iloc[0])
+
+        subtlex_freqs = []
+        for word in words:
+            tokens = tokenize(word, lang=language)
+            one_over_result = 0.0
+            try:
+                for token in tokens:
+                    one_over_result += 1.0 / subtlex.loc[token, "Frequency"]
+            except KeyError:
+                subtlex_freq = float("inf")
+            else:
+                subtlex_freq = (
+                    1.0 / one_over_result if one_over_result != 0 else float("inf")
+                )
+            subtlex_freqs.append(subtlex_freq)
+        frequencies["subtlex_Frequency"] = subtlex_freqs
+    else:
+        frequencies["subtlex_Frequency"] = [float("inf")] * len(words)
 
     return pd.DataFrame(frequencies)
 
@@ -198,7 +207,9 @@ def get_metrics(
     )
     surp_col_suffix = surp_extractor.extractor_type.column_suffix
     surprisal.rename(
-        columns={"Surprisal": f"{surp_extractor.model_name}_{surp_col_suffix}_Surprisal"},
+        columns={
+            "Surprisal": f"{surp_extractor.model_name}_{surp_col_suffix}_Surprisal"
+        },
         inplace=True,
     )
 
