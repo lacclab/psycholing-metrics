@@ -13,6 +13,7 @@ from transformers import (
 # Supported model families and their HuggingFace identifiers:
 #
 # GPT-2:    gpt2, gpt2-medium, gpt2-large, gpt2-xl
+# CzeGPT-2: MU-NLPC/CzeGPT-2 (Czech GPT-2)
 # GPT-Neo:  EleutherAI/gpt-neo-125M, EleutherAI/gpt-neo-1.3B, EleutherAI/gpt-neo-2.7B,
 #           EleutherAI/gpt-j-6B, EleutherAI/gpt-neox-20b
 # OPT:      facebook/opt-125m, facebook/opt-350m, ..., facebook/opt-66b
@@ -42,7 +43,7 @@ def load_tokenizer_and_model(
 
     if any(
         variant in model_variant
-        for variant in ["gpt-neo", "gpt", "opt", "mamba", "rwkv"]
+        for variant in ["gpt-neo", "gpt", "CzeGPT", "opt", "mamba", "rwkv"]
     ):
         tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
 
@@ -67,7 +68,10 @@ def load_tokenizer_and_model(
     else:
         raise ValueError(f"Unsupported model: {model_name}")
 
-    if any(variant in model_variant for variant in ["gpt-neo", "gpt", "opt", "rwkv"]):
+    if any(
+        variant in model_variant
+        for variant in ["gpt-neo", "gpt", "CzeGPT", "opt", "rwkv"]
+    ):
         model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
 
     elif "Eagle" in model_variant:  # RWKV
