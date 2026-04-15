@@ -270,9 +270,7 @@ def extract_metrics_for_multiple_models(
                 is_first = False
 
             except Exception as e:
-                print(
-                    f"Error for {model_name} with {surp_extractor_type.name}: {e}"
-                )
+                print(f"Error for {model_name} with {surp_extractor_type.name}: {e}")
 
     return metric_df
 
