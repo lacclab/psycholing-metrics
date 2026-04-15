@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "psycholing-metrics"
-version = "2.2.1"
+version = "2.2.2"
 description = "Word-level linguistic metric extraction (surprisal, frequency, length, parsing features)"
 readme = "README.md"
 license = {text = "MIT"}
