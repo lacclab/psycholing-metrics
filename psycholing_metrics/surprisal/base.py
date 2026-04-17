@@ -57,6 +57,28 @@ class BaseSurprisalExtractor:
         """
         raise NotImplementedError
 
+    def _get_bos_like_id(self) -> int:
+        """Return the tokenizer's BOS id, falling back to CLS then PAD.
+
+        BERT-style tokenizers (e.g. BertTokenizerFast used by uer/gpt2-*-chinese
+        models) return ``None`` for ``bos_token_id`` but expose ``cls_token_id``.
+        """
+        for attr in ("bos_token_id", "cls_token_id", "pad_token_id"):
+            tid = getattr(self.tokenizer, attr, None)
+            if tid is not None:
+                return tid
+        raise ValueError(
+            f"Tokenizer for {self.model_name} has no BOS/CLS/PAD token id."
+        )
+
+    def _get_eos_like_id(self) -> int | None:
+        """Return the tokenizer's EOS id, falling back to SEP; ``None`` if neither."""
+        for attr in ("eos_token_id", "sep_token_id"):
+            tid = getattr(self.tokenizer, attr, None)
+            if tid is not None:
+                return tid
+        return None
+
     def _create_input_tokens(
         self,
         encodings: dict,
@@ -64,26 +86,25 @@ class BaseSurprisalExtractor:
         is_last_chunk: bool,
         device: str,
     ):
-        try:
-            bos_token_added = self.tokenizer.bos_token_id
-        except AttributeError:
-            bos_token_added = self.tokenizer.pad_token_id
-
         tokens_lst = encodings["input_ids"]
+        eos_appended = False
         if is_last_chunk:
-            tokens_lst.append(self.tokenizer.eos_token_id)
+            eos_id = self._get_eos_like_id()
+            if eos_id is not None:
+                tokens_lst.append(eos_id)
+                eos_appended = True
         if start_ind == 0:
-            tokens_lst = [bos_token_added] + tokens_lst
+            tokens_lst = [self._get_bos_like_id()] + tokens_lst
         tensor_input = torch.tensor(
             [tokens_lst],
             device=device,
         )
-        return tensor_input
+        return tensor_input, eos_appended
 
     def _tokens_to_log_probs(
         self,
         tensor_input: torch.Tensor,
-        is_last_chunk: bool,
+        eos_appended: bool,
     ):
         output = self.model(tensor_input, labels=tensor_input)
         shift_logits = output["logits"][..., :-1, :].contiguous()
@@ -97,7 +118,7 @@ class BaseSurprisalExtractor:
 
         shift_labels = shift_labels[0]
 
-        if is_last_chunk:
+        if eos_appended:
             log_probs = log_probs[:-1]
             shift_labels = shift_labels[:-1]
 
@@ -131,7 +152,7 @@ class BaseSurprisalExtractor:
                 full_context
             )
 
-            tensor_input = self._create_input_tokens(
+            tensor_input, eos_appended = self._create_input_tokens(
                 encodings,
                 start_ind,
                 is_last_chunk,
@@ -139,7 +160,7 @@ class BaseSurprisalExtractor:
             )
 
             log_probs, shift_labels = self._tokens_to_log_probs(
-                tensor_input, is_last_chunk
+                tensor_input, eos_appended
             )
 
             offset = 0 if start_ind == 0 else overlap_size - 1
