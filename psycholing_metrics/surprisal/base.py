@@ -62,20 +62,41 @@ class BaseSurprisalExtractor:
 
         BERT-style tokenizers (e.g. BertTokenizerFast used by uer/gpt2-*-chinese
         models) return ``None`` for ``bos_token_id`` but expose ``cls_token_id``.
+
+        Some model cards ship configs whose ``bos_token_id`` equals or exceeds
+        the model's ``vocab_size`` (e.g. ``dbmdz/german-gpt2`` has
+        ``bos_token_id=50265`` with ``vocab_size=50265``), which would raise
+        a CUDA ``srcIndex < srcSelectDimSize`` assert on embedding lookup. We
+        skip such out-of-range candidates and fall back to ``0`` when every
+        candidate is invalid so the causal-LM shift (which drops the first
+        token before scoring) stays intact.
         """
+        vocab_size = getattr(getattr(self.model, "config", None), "vocab_size", None)
+
+        def _in_range(tid: int) -> bool:
+            return vocab_size is None or 0 <= tid < int(vocab_size)
+
         for attr in ("bos_token_id", "cls_token_id", "pad_token_id"):
             tid = getattr(self.tokenizer, attr, None)
-            if tid is not None:
+            if tid is not None and _in_range(tid):
                 return tid
-        raise ValueError(
-            f"Tokenizer for {self.model_name} has no BOS/CLS/PAD token id."
-        )
+        return 0
 
     def _get_eos_like_id(self) -> int | None:
-        """Return the tokenizer's EOS id, falling back to SEP; ``None`` if neither."""
+        """Return the tokenizer's EOS id, falling back to SEP; ``None`` if neither.
+
+        Mirrors the vocab-range check in :meth:`_get_bos_like_id` — an EOS id
+        that sits outside the embedding vocab is treated as missing (so we
+        skip appending it) rather than triggering a CUDA OOB.
+        """
+        vocab_size = getattr(getattr(self.model, "config", None), "vocab_size", None)
+
+        def _in_range(tid: int) -> bool:
+            return vocab_size is None or 0 <= tid < int(vocab_size)
+
         for attr in ("eos_token_id", "sep_token_id"):
             tid = getattr(self.tokenizer, attr, None)
-            if tid is not None:
+            if tid is not None and _in_range(tid):
                 return tid
         return None
 
@@ -213,9 +234,11 @@ class BaseSurprisalExtractor:
             except AttributeError:
                 max_ctx = int(1e6)
 
-            assert overlap_size < max_ctx, (
-                f"Stride size {overlap_size} is larger than the maximum context size {max_ctx}"
-            )
+            # Cap overlap at max_ctx - 1 so models with small windows
+            # (e.g. max_position_embeddings=512 and default overlap_size=512)
+            # don't hit the stride >= max_ctx assertion.
+            if overlap_size >= max_ctx:
+                overlap_size = max(1, max_ctx - 1)
 
             all_log_probs, offset_mapping, accumulated_tokenized_text = (
                 self._compute_log_probs_with_chunking(

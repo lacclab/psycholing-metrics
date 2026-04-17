@@ -114,9 +114,11 @@ class ConcatenatedSurprisalExtractor(BaseSurprisalExtractor):
             full_context = left_context_text + " " + target_text
             target_text_char_onset = len(full_context) - len(target_text)
 
-            assert overlap_size < max_ctx, (
-                f"Stride size {overlap_size} is larger than the maximum context size {max_ctx}"
-            )
+            # Cap overlap at max_ctx - 1 so models with small windows
+            # (e.g. max_position_embeddings=512 and default overlap_size=512)
+            # don't hit the stride >= max_ctx assertion.
+            if overlap_size >= max_ctx:
+                overlap_size = max(1, max_ctx - 1)
 
             (
                 all_log_probs,
