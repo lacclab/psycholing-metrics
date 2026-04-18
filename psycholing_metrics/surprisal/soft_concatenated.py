@@ -68,7 +68,7 @@ class SoftCatBaseExtractor(BaseSurprisalExtractor):
         self,
         target_encodings: torch.Tensor,
         left_context_text: str,
-    ) -> Tuple[torch.Tensor, int]:
+    ) -> Tuple[torch.Tensor, int, bool]:
         """Build the full embedding input by concatenating BOS + context + target + EOS."""
         target_word_embeddings = self.model_wte(target_encodings["input_ids"])
 
@@ -78,37 +78,46 @@ class SoftCatBaseExtractor(BaseSurprisalExtractor):
             .to(self.model.device)
         )
 
-        try:
-            bos_token_added = self.tokenizer.bos_token_id
-        except AttributeError:
-            bos_token_added = self.tokenizer.pad_token_id
-
-        eos_token_added = self.tokenizer.eos_token_id
+        bos_token_added = self._get_bos_like_id()
+        eos_token_added = self._get_eos_like_id()
 
         bos_embd = (
             self.model_wte(torch.tensor(bos_token_added).to(self.model.device))
             .unsqueeze(0)
             .unsqueeze(1)
         )
-        eos_embd = (
-            self.model_wte(torch.tensor(eos_token_added).to(self.model.device))
-            .unsqueeze(0)
-            .unsqueeze(1)
-        )
 
-        full_embeddings = torch.cat(
-            [bos_embd, left_context_embedding, target_word_embeddings, eos_embd], dim=1
-        )
+        embeddings_parts = [bos_embd, left_context_embedding, target_word_embeddings]
+        eos_appended = eos_token_added is not None
+        if eos_appended:
+            eos_embd = (
+                self.model_wte(torch.tensor(eos_token_added).to(self.model.device))
+                .unsqueeze(0)
+                .unsqueeze(1)
+            )
+            embeddings_parts.append(eos_embd)
+
+        full_embeddings = torch.cat(embeddings_parts, dim=1)
 
         target_text_onset: int = left_context_embedding.shape[1]
 
-        return full_embeddings, target_text_onset
+        return full_embeddings, target_text_onset, eos_appended
 
     def _embeddings_to_log_probs(
-        self, full_embeddings: torch.Tensor, target_labels, target_text_onset: int
+        self,
+        full_embeddings: torch.Tensor,
+        target_labels,
+        target_text_onset: int,
+        eos_appended: bool,
     ):
         output = self.model(inputs_embeds=full_embeddings)
-        shift_logits = output["logits"][..., target_text_onset:-2, :].contiguous()
+        # Drop logit positions that don't correspond to target tokens:
+        # - the position whose prediction target is the appended EOS (if present)
+        # - the final position whose "next token" has no label
+        trailing_drop = 2 if eos_appended else 1
+        shift_logits = output["logits"][
+            ..., target_text_onset:-trailing_drop, :
+        ].contiguous()
 
         shift_labels = target_labels.contiguous()
 
@@ -142,12 +151,12 @@ class SoftCatBaseExtractor(BaseSurprisalExtractor):
                 self._encode_target_text(target_text)
             )
 
-            full_embeddings, target_text_onset = self._build_embedding_input(
-                target_encodings, left_context_text
+            full_embeddings, target_text_onset, eos_appended = (
+                self._build_embedding_input(target_encodings, left_context_text)
             )
 
             log_probs, _ = self._embeddings_to_log_probs(
-                full_embeddings, target_labels, target_text_onset
+                full_embeddings, target_labels, target_text_onset, eos_appended
             )
 
         log_probs = log_probs.cpu().numpy()

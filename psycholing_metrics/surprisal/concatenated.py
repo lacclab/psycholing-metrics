@@ -47,14 +47,18 @@ class ConcatenatedSurprisalExtractor(BaseSurprisalExtractor):
 
         Finds where the target text begins in the offset mapping and slices
         both log probs and offsets to cover only the target text.
+
+        ``target_text_char_onset - 1`` is the position of the separating space
+        between left context and target. GPT-2 / BPE tokenizers include that
+        leading space in the first target token (start == onset - 1), whereas
+        BERT WordPiece (e.g. Chinese GPT-2) strips whitespace entirely
+        (start == onset). ``>=`` handles both conventions.
         """
-        offset_mapping_first_index = [
+        offset_mapping_first_index = next(
             i
-            for i, (start, end) in enumerate(offset_mapping)
-            if start
-            == target_text_char_onset
-            - 1  # -1 because the first token includes the space
-        ][0]
+            for i, (start, _end) in enumerate(offset_mapping)
+            if start >= target_text_char_onset - 1
+        )
 
         target_text_log_probs = all_log_probs[offset_mapping_first_index:]
 
@@ -110,9 +114,11 @@ class ConcatenatedSurprisalExtractor(BaseSurprisalExtractor):
             full_context = left_context_text + " " + target_text
             target_text_char_onset = len(full_context) - len(target_text)
 
-            assert overlap_size < max_ctx, (
-                f"Stride size {overlap_size} is larger than the maximum context size {max_ctx}"
-            )
+            # Cap overlap at max_ctx - 1 so models with small windows
+            # (e.g. max_position_embeddings=512 and default overlap_size=512)
+            # don't hit the stride >= max_ctx assertion.
+            if overlap_size >= max_ctx:
+                overlap_size = max(1, max_ctx - 1)
 
             (
                 all_log_probs,
