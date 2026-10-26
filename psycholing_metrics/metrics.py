@@ -27,7 +27,7 @@ def get_surprisal(
     """Compute surprisal values for each word in text.
 
     Words are split by whitespace and include adjacent punctuation.
-    A word's surprisal is the sum of its sub-word token surprisals.
+    A word's surprisal is the sum of its sub-word token surprisals, in nats.
 
     :param target_text: the text to get surprisal values for.
     :param surp_extractor: the surprisal extractor to use.

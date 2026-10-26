@@ -193,7 +193,9 @@ The `SOFT_CAT_WHOLE_CTX_LEFT` and `SOFT_CAT_SENTENCES` extractors provide embedd
 ### Notes
 
 - Words are split by whitespace and include adjacent punctuation.
-- A word's surprisal is the sum of its sub-word token surprisals.
+- Surprisal is in nats (natural log), not bits.
+- A word's surprisal is the sum of its sub-word token surprisals. A token belongs to the word holding its first non-space character, so the byte tokens of one multi-byte character stay together. A word the tokenizer emits no token for (e.g. a private-use character under a BERT tokenizer) gets surprisal 0.
+- `get_metrics` maps curly quotes, the en dash, the ellipsis and the "fi" ligature to ASCII (`clean_text`) before computing any metric. Letters, including accented ones, are left unchanged.
 - BOS representation is used when available (e.g., GPT-2), following Pimentel & Meister (2024).
 
 ## Parsing Features
