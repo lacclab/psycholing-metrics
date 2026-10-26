@@ -244,6 +244,7 @@ Frequency is computed via [wordfreq](https://github.com/rspeer/wordfreq) and the
 - Reported as negative log2 frequency.
 - Punctuation is stripped before lookup.
 - Compound words use half harmonic mean of parts.
+- wordfreq has no Basque list and would silently use Spanish, so Basque (`language="eu"`) is looked up the same way in a list built from [EusCrawl v1.1](https://huggingface.co/datasets/HiTZ/latxa-corpus-v1.1) (Artetxe et al., 2022; Etxaniz et al., 2024) by `scripts/build_euscrawl_frequencies.py`. For other unsupported codes wordfreq falls back to the nearest language it has (e.g. `no` → `nb`, `sr` and `hr` → `sh`) and logs a warning.
 
 ## Package Structure
 

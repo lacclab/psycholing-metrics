@@ -46,4 +46,4 @@ Issues = "https://github.com/lacclab/psycholing-metrics/issues"
 include = ["psycholing_metrics*"]
 
 [tool.setuptools.package-data]
-psycholing_metrics = ["data/*.tsv"]
+psycholing_metrics = ["data/*.tsv", "data/*.tsv.gz"]
