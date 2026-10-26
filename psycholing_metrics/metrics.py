@@ -1,5 +1,8 @@
 """Core functions for extracting word-level metrics: surprisal, frequency, and word length."""
 
+import functools
+import gzip
+import math
 import string
 from importlib.resources import files
 from typing import Literal
@@ -7,7 +10,8 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 import spacy
-from wordfreq import tokenize, word_frequency
+from wordfreq import lossy_tokenize, tokenize, word_frequency
+from wordfreq.numbers import digit_freq, smash_numbers
 
 from psycholing_metrics.surprisal.base import BaseSurprisalExtractor
 from psycholing_metrics.surprisal.types import SurprisalExtractorType
@@ -27,7 +31,7 @@ def get_surprisal(
     """Compute surprisal values for each word in text.
 
     Words are split by whitespace and include adjacent punctuation.
-    A word's surprisal is the sum of its sub-word token surprisals.
+    A word's surprisal is the sum of its sub-word token surprisals, in nats.
 
     :param target_text: the text to get surprisal values for.
     :param surp_extractor: the surprisal extractor to use.
@@ -65,6 +69,57 @@ def get_surprisal(
     return dataframe_probs
 
 
+# Languages wordfreq has no list for, and would silently look up in a
+# different language (Basque in Spanish), with the list used instead.
+# Built by scripts/build_euscrawl_frequencies.py.
+FREQUENCY_LISTS = {"eu": "data/euscrawl_v1.1_eu_frequencies.tsv.gz"}
+
+
+@functools.cache
+def _load_frequency_list(language: str) -> dict[str, float]:
+    data_path = files("psycholing_metrics").joinpath(FREQUENCY_LISTS[language])
+    with data_path.open("rb") as raw, gzip.open(raw, "rt", encoding="utf-8") as f:
+        frequencies = pd.read_csv(
+            f, sep="\t", keep_default_na=False, quoting=3, dtype={"Word": str}
+        )
+    return dict(zip(frequencies["Word"], frequencies["Frequency"]))
+
+
+def get_word_frequency(word: str, language: str, minimum: float = 0.0) -> float:
+    """Frequency of a word as a proportion: wordfreq's ``word_frequency``, with
+    a ``FREQUENCY_LISTS`` list for languages wordfreq has none for (Basque).
+
+    The lookup in those lists mirrors wordfreq's: the same tokenization and
+    digit handling, 1 / f = 1 / f1 + 1 / f2 + ... for words of several tokens,
+    and rounding to 3 significant digits.
+
+    :param word: the word to look up.
+    :param language: language code (e.g. 'eu' or 'eu-ES').
+    :param minimum: the value returned for out-of-vocabulary words.
+
+    >>> get_word_frequency("eta", language="eu")
+    0.0415
+    """
+    base_language = language.split("-")[0].lower()
+    if base_language not in FREQUENCY_LISTS:
+        return word_frequency(word, lang=language, minimum=minimum)
+    freqs = _load_frequency_list(base_language)
+    tokens = lossy_tokenize(word, base_language)
+    if not tokens:
+        return minimum
+    one_over_result = 0.0
+    for token in tokens:
+        smashed = smash_numbers(token)
+        if smashed not in freqs:
+            return minimum
+        freq = freqs[smashed]
+        if smashed != token:
+            freq *= digit_freq(token)
+        one_over_result += 1.0 / freq
+    freq = max(1.0 / one_over_result, minimum)
+    return round(freq, math.floor(-math.log10(freq)) + 3)
+
+
 def get_frequency(text: str, language: str) -> pd.DataFrame:
     """Compute word frequency (negative log2) for each word in text.
 
@@ -74,6 +129,9 @@ def get_frequency(text: str, language: str) -> pd.DataFrame:
     is also provided as ``subtlex_Frequency`` for comparability with prior
     psycholinguistic work. Words are split by whitespace; for multi-token
     lookups the harmonic mean of token frequencies is used.
+
+    wordfreq has no Basque list, so for ``language == 'eu'`` frequencies come
+    from EusCrawl v1.1 (Artetxe et al., 2022), looked up the same way.
 
     :param text: the text to get frequencies for.
     :param language: language code (e.g. 'en'). SUBTLEX column is populated
@@ -94,7 +152,7 @@ def get_frequency(text: str, language: str) -> pd.DataFrame:
     frequencies = {
         "Word": words,
         "Wordfreq_Frequency": [
-            -np.log2(word_frequency(word, lang=language, minimum=1e-11))
+            -np.log2(get_word_frequency(word, language=language, minimum=1e-11))
             for word in words
         ],  # minimum equal to ~36.5
     }

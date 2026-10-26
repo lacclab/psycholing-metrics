@@ -23,6 +23,7 @@ from psycholing_metrics.metrics import (
     get_frequency,
     get_metrics,
     get_surprisal,
+    get_word_frequency,
     get_word_length,
 )
 from psycholing_metrics.surprisal import (
@@ -41,6 +42,7 @@ __all__ = [
     "get_metrics",
     "get_surprisal",
     "get_frequency",
+    "get_word_frequency",
     "get_word_length",
     # Extractor factory
     "create_surprisal_extractor",

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "psycholing-metrics"
-version = "2.2.6"
+version = "2.2.7"
 description = "Word-level linguistic metric extraction (surprisal, frequency, length, parsing features)"
 readme = "README.md"
 license = {text = "MIT"}
@@ -46,4 +46,4 @@ Issues = "https://github.com/lacclab/psycholing-metrics/issues"
 include = ["psycholing_metrics*"]
 
 [tool.setuptools.package-data]
-psycholing_metrics = ["data/*.tsv"]
+psycholing_metrics = ["data/*.tsv", "data/*.tsv.gz"]

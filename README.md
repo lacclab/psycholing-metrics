@@ -193,7 +193,9 @@ The `SOFT_CAT_WHOLE_CTX_LEFT` and `SOFT_CAT_SENTENCES` extractors provide embedd
 ### Notes
 
 - Words are split by whitespace and include adjacent punctuation.
-- A word's surprisal is the sum of its sub-word token surprisals.
+- Surprisal is in nats (natural log), not bits.
+- A word's surprisal is the sum of its sub-word token surprisals. A token belongs to the word holding its first non-space character, so the byte tokens of one multi-byte character stay together. A word the tokenizer emits no token for (e.g. a private-use character under a BERT tokenizer) gets surprisal 0.
+- `get_metrics` maps curly quotes, the en dash, the ellipsis and the "fi" ligature to ASCII (`clean_text`) before computing any metric. Letters, including accented ones, are left unchanged.
 - BOS representation is used when available (e.g., GPT-2), following Pimentel & Meister (2024).
 
 ## Parsing Features
@@ -242,6 +244,7 @@ Frequency is computed via [wordfreq](https://github.com/rspeer/wordfreq) and the
 - Reported as negative log2 frequency.
 - Punctuation is stripped before lookup.
 - Compound words use half harmonic mean of parts.
+- wordfreq has no Basque list and would silently use Spanish, so Basque (`language="eu"`) is looked up the same way in a list built from [EusCrawl v1.1](https://huggingface.co/datasets/HiTZ/latxa-corpus-v1.1) (Artetxe et al., 2022; Etxaniz et al., 2024) by `scripts/build_euscrawl_frequencies.py`; the list holds word frequencies only, and EusCrawl's documents stay under their sources' licences (mostly Creative Commons). `get_word_frequency(word, language)` gives the same per-word lookup as a proportion, for code that used `wordfreq.word_frequency`. For other unsupported codes wordfreq falls back to the nearest language it has (e.g. `no` → `nb`, `sr` and `hr` → `sh`) and logs a warning.
 
 ## Package Structure
 
