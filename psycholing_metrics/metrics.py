@@ -85,17 +85,26 @@ def _load_frequency_list(language: str) -> dict[str, float]:
     return dict(zip(frequencies["Word"], frequencies["Frequency"]))
 
 
-def _word_frequency(word: str, language: str, minimum: float) -> float:
-    """wordfreq's word_frequency, with a FREQUENCY_LISTS list where it has none.
+def get_word_frequency(word: str, language: str, minimum: float = 0.0) -> float:
+    """Frequency of a word as a proportion: wordfreq's ``word_frequency``, with
+    a ``FREQUENCY_LISTS`` list for languages wordfreq has none for (Basque).
 
-    The lookup mirrors wordfreq's: the same tokenization and digit handling,
-    1 / f = 1 / f1 + 1 / f2 + ... for words of several tokens, and rounding to
-    3 significant digits.
+    The lookup in those lists mirrors wordfreq's: the same tokenization and
+    digit handling, 1 / f = 1 / f1 + 1 / f2 + ... for words of several tokens,
+    and rounding to 3 significant digits.
+
+    :param word: the word to look up.
+    :param language: language code (e.g. 'eu' or 'eu-ES').
+    :param minimum: the value returned for out-of-vocabulary words.
+
+    >>> get_word_frequency("eta", language="eu")
+    0.0415
     """
-    if language not in FREQUENCY_LISTS:
+    base_language = language.split("-")[0].lower()
+    if base_language not in FREQUENCY_LISTS:
         return word_frequency(word, lang=language, minimum=minimum)
-    freqs = _load_frequency_list(language)
-    tokens = lossy_tokenize(word, language)
+    freqs = _load_frequency_list(base_language)
+    tokens = lossy_tokenize(word, base_language)
     if not tokens:
         return minimum
     one_over_result = 0.0
@@ -143,7 +152,7 @@ def get_frequency(text: str, language: str) -> pd.DataFrame:
     frequencies = {
         "Word": words,
         "Wordfreq_Frequency": [
-            -np.log2(_word_frequency(word, language=language, minimum=1e-11))
+            -np.log2(get_word_frequency(word, language=language, minimum=1e-11))
             for word in words
         ],  # minimum equal to ~36.5
     }

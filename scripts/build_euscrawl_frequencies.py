@@ -4,6 +4,9 @@ wordfreq has no Basque list (it silently falls back to Spanish), so Basque
 frequencies come from EusCrawl v1.1 (Artetxe et al., 2022; updated for Latxa,
 Etxaniz et al., 2024), downloaded from
 https://huggingface.co/datasets/HiTZ/latxa-corpus-v1.1/tree/main/euscrawl-v1.1
+The shipped list was built from revision 15f885ba5ed17d4e44e71c487c3c78c9b87d0f65
+(2026-02-13; train, valid and test) with wordfreq 3.1.1. The official
+download at https://www.ixa.eus/euscrawl/ is the v1 corpus.
 
 Tokens are counted the way wordfreq looks them up: lossy_tokenize, then digit
 sequences smashed to 0. A token's frequency is its count over all tokens. As in

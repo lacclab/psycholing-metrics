@@ -5,7 +5,11 @@ import unittest
 import numpy as np
 from wordfreq import word_frequency
 
-from psycholing_metrics.metrics import _load_frequency_list, get_frequency
+from psycholing_metrics.metrics import (
+    _load_frequency_list,
+    get_frequency,
+    get_word_frequency,
+)
 
 FLOOR = -np.log2(1e-11)
 
@@ -40,6 +44,11 @@ class TestFrequency(unittest.TestCase):
         combined = 1 / (1 / freqs["etxe"] + 1 / freqs["jabe"])
         self.assertAlmostEqual(bits[1], -np.log2(combined), places=2)
         self.assertEqual(bits[2], FLOOR)
+
+    def test_basque_region_code(self):
+        self.assertEqual(
+            get_word_frequency("etxea", "eu-ES"), get_word_frequency("etxea", "eu")
+        )
 
     def test_basque_numbers(self):
         bits = get_frequency("2023an", "eu")["Wordfreq_Frequency"]
