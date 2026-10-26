@@ -9,6 +9,18 @@ from psycholing_metrics.model_loader import load_tokenizer_and_model
 from psycholing_metrics.surprisal.types import SurprisalExtractorType
 
 
+def cap_overlap_size(overlap_size: int, max_ctx: int) -> int:
+    """Cap the chunk overlap so that consecutive chunks still advance.
+
+    A chunk holds ``max_ctx - 2`` tokens (room for BOS and EOS) and the next
+    one starts ``overlap_size`` tokens before its end, so the overlap can be
+    at most ``max_ctx - 3``. Models with small windows (e.g.
+    ``max_position_embeddings=512`` with the default ``overlap_size=512``)
+    would otherwise index past the end of the chunk.
+    """
+    return min(overlap_size, max(1, max_ctx - 3))
+
+
 class BaseSurprisalExtractor:
     """Abstract base for computing word-level surprisal from causal language models.
 
@@ -169,8 +181,17 @@ class BaseSurprisalExtractor:
                 return_offsets_mapping=True,
                 add_special_tokens=False,
             )
-            is_last_chunk = (encodings["offset_mapping"][-1][1] + start_ind) == len(
-                full_context
+            # The last chunk is the one after which nothing tokenizes. Its end
+            # offset alone is not enough: characters the tokenizer emits no
+            # token for (BERT normalization drops private-use characters such
+            # as U+E004) leave it short of len(full_context) even when the
+            # whole text fits in one chunk.
+            chunk_end = encodings["offset_mapping"][-1][1] + start_ind
+            is_last_chunk = (
+                chunk_end == len(full_context)
+                or not self.tokenizer(
+                    full_context[chunk_end:], add_special_tokens=False
+                )["input_ids"]
             )
 
             tensor_input, eos_appended = self._create_input_tokens(
@@ -234,11 +255,7 @@ class BaseSurprisalExtractor:
             except AttributeError:
                 max_ctx = int(1e6)
 
-            # Cap overlap at max_ctx - 1 so models with small windows
-            # (e.g. max_position_embeddings=512 and default overlap_size=512)
-            # don't hit the stride >= max_ctx assertion.
-            if overlap_size >= max_ctx:
-                overlap_size = max(1, max_ctx - 1)
+            overlap_size = cap_overlap_size(overlap_size, max_ctx)
 
             all_log_probs, offset_mapping, accumulated_tokenized_text = (
                 self._compute_log_probs_with_chunking(

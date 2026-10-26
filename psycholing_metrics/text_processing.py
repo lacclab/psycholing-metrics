@@ -259,12 +259,24 @@ def aggregate_token_log_probs(
     word_offsets = get_word_offsets(words)
     cur_prob = 0
     cur_word_ind = 0
-    for i, (lp, ind) in enumerate(zip(token_log_probs, token_offsets)):
+    n_word_tokens = 0
+    for lp, ind in zip(token_log_probs, token_offsets):
+        # A word the tokenizer emitted no token for (BERT normalization drops
+        # private-use characters, e.g. U+E004) ends before the next token
+        # starts. The model never saw it, so it adds no surprisal.
+        while n_word_tokens == 0 and ind[0] >= word_offsets[cur_word_ind][1]:
+            agg_log_probs.append(0.0)
+            cur_word_ind += 1
         cur_prob += lp
+        n_word_tokens += 1
         if ind[1] == word_offsets[cur_word_ind][1]:
             agg_log_probs.append(cur_prob)
             cur_prob = 0
+            n_word_tokens = 0
             cur_word_ind += 1
+    # The same for words after the last token.
+    if n_word_tokens == 0:
+        agg_log_probs.extend([0.0] * (len(words) - cur_word_ind))
 
     zipped_surp = list(zip(words, agg_log_probs))
     return agg_log_probs, zipped_surp
