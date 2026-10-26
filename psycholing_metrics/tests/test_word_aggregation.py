@@ -11,7 +11,7 @@ import unittest
 import numpy as np
 from transformers import AutoTokenizer
 
-from psycholing_metrics.text_processing import aggregate_token_log_probs
+from psycholing_metrics.text_processing import aggregate_token_log_probs, clean_text
 
 
 class TestWordAggregation(unittest.TestCase):
@@ -52,6 +52,18 @@ class TestWordAggregation(unittest.TestCase):
     def test_token_after_the_last_word_raises(self):
         with self.assertRaises(ValueError):
             aggregate_token_log_probs("ab", np.array([1.0, 1.0]), [(0, 2), (2, 3)])
+
+
+class TestCleanText(unittest.TestCase):
+    def test_keeps_accented_letters(self):
+        text = "décadas café Noël naïve"
+        self.assertEqual(clean_text(text), text)
+
+    def test_maps_typographic_characters(self):
+        self.assertEqual(
+            clean_text("“don’t” ‘a’ 1–2 so… ﬁne"),
+            "\"don't\" 'a' 1-2 so... fine",
+        )
 
 
 if __name__ == "__main__":

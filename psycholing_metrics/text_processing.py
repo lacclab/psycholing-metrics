@@ -49,10 +49,13 @@ REDUCED_POS = {
 
 
 def clean_text(raw_text: str) -> str:
-    """Replace problematic Unicode characters with ASCII equivalents.
+    """Replace typographic Unicode characters with ASCII equivalents.
 
-    Made for OnestopQA corpus text normalization.
-    E.g., \u201c -> ", \u00eb -> e
+    Curly quotes, the en dash, the ellipsis and the "fi" ligature become
+    ASCII, so "don\u2019t" and "don't" get the same surprisal.
+    E.g., \u201c -> ", \u2026 -> ...
+    Letters are left as they are: folding accents (\u00e9 -> e) misspells
+    words in most languages and inflates their surprisal.
     """
     return (
         raw_text.replace("\u2019", "'")
@@ -61,10 +64,7 @@ def clean_text(raw_text: str) -> str:
         .replace("\u2013", "-")
         .replace("\u2026", "...")
         .replace("\u2018", "'")
-        .replace("\u00e9", "e")
-        .replace("\u00eb", "e")
         .replace("\ufb01", "fi")
-        .replace("\u00ef", "i")
     )
 
 
