@@ -5,6 +5,8 @@ Chinese character, private-use characters dropped) with a tiny randomly
 initialised GPT-2, so a 16-position context makes chunking cheap to exercise.
 """
 
+import contextlib
+import io
 import unittest
 
 import torch
@@ -90,6 +92,29 @@ class TestChunkingEdgeCases(unittest.TestCase):
         for n in (N_POSITIONS - 2, N_POSITIONS - 1):
             with self.subTest(n_tokens=n):
                 self.assertEqual(len(self.surprisal(_words(n))), n)
+
+    def assert_covers_all_tokens(self, text: str) -> str:
+        """Run compute_surprisal on raw text; return what it printed."""
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            log_probs, offset_mapping = self.extractor.compute_surprisal(
+                target_text=text, overlap_size=8, allow_overlap=True
+            )
+        expected = self.extractor.tokenizer(
+            text, add_special_tokens=False, return_offsets_mapping=True
+        )["offset_mapping"]
+        self.assertEqual(len(log_probs), len(expected))
+        self.assertEqual([tuple(o) for o in offset_mapping], expected)
+        return printed.getvalue()
+
+    def test_trailing_whitespace(self):
+        # The tokenizer drops trailing whitespace too, so the last token ends
+        # short of len(text). The "too long" notice is only for real overflow.
+        for n, too_long in ((5, False), (40, True)):
+            for suffix in ("", " ", "\n"):
+                with self.subTest(n_tokens=n, suffix=repr(suffix)):
+                    printed = self.assert_covers_all_tokens("".join(_words(n)) + suffix)
+                    self.assertEqual("too long" in printed, too_long)
 
 
 if __name__ == "__main__":
