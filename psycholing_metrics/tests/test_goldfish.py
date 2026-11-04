@@ -32,7 +32,7 @@ class TestGoldfishLoader(unittest.TestCase):
             "goldfish-models/tur_latn_1000mb", use_fast=True
         )
         auto_model.from_pretrained.assert_called_once_with(
-            "goldfish-models/tur_latn_1000mb", device_map="auto"
+            "goldfish-models/tur_latn_1000mb", device_map="cpu"
         )
 
     def test_unknown_names_still_raise(self):
