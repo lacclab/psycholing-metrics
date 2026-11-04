@@ -162,9 +162,12 @@ Llama:    meta-llama/Llama-2-7b-hf, meta-llama/Llama-2-13b-hf, meta-llama/Llama-
 Gemma:    google/gemma-2b, google/gemma-7b (also *-it versions)
 Mamba:    state-spaces/mamba-130m-hf, ..., state-spaces/mamba-2.8b-hf
 Mistral:  mistralai/Mistral-7B-Instruct-v0.*
+Goldfish: goldfish-models/{lang}_{script}_{size}, e.g. goldfish-models/tur_latn_1000mb
 ```
 
 > Llama, Gemma, and Mistral require a HuggingFace access token via the `hf_access_token` parameter.
+
+> Goldfish models are trained on 512-token sequences. Longer texts are split into chunks, which fails the tokenization check with their SentencePiece tokenizer (an `AssertionError`), so keep Goldfish inputs under 510 tokens.
 
 ### Prefix-Conditioned Surprisal
 
