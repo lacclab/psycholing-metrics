@@ -25,6 +25,8 @@ from transformers import (
 # Gemma:    google/gemma-2b, google/gemma-7b, google/recurrentgemma-2b, google/recurrentgemma-9b
 # Mamba:    state-spaces/mamba-130m-hf, ..., state-spaces/mamba-2.8b-hf
 # Mistral:  mistralai/Mistral-7B-Instruct-v0.*
+# Goldfish: goldfish-models/{lang}_{script}_{size} (monolingual GPT-2 models, e.g.
+#           goldfish-models/tur_latn_1000mb; SentencePiece tokenizer, BOS [CLS])
 
 
 def load_tokenizer_and_model(
@@ -43,8 +45,14 @@ def load_tokenizer_and_model(
     :return: (tokenizer, model) tuple.
     """
     model_variant = model_name.split("/")[-1]
+    # Goldfish variants are named by language and script (e.g. tur_latn_1000mb),
+    # so they are recognized by their organization instead of the variant.
+    is_goldfish = model_name.startswith("goldfish-models/")
 
-    if "chinese" in model_variant:
+    if is_goldfish:
+        tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
+
+    elif "chinese" in model_variant:
         tokenizer = BertTokenizerFast.from_pretrained(model_name)
 
     elif any(
@@ -74,7 +82,10 @@ def load_tokenizer_and_model(
     else:
         raise ValueError(f"Unsupported model: {model_name}")
 
-    if any(
+    if is_goldfish:
+        model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
+
+    elif any(
         variant in model_variant
         for variant in ["gpt-neo", "gpt", "CzeGPT", "mGPT", "opt", "rwkv"]
     ):
