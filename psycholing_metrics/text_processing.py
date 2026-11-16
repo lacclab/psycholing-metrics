@@ -1,6 +1,5 @@
 """Text processing utilities: cleaning, parsing, and word-level feature extraction."""
 
-import bisect
 import re
 from collections import defaultdict
 from typing import List, Literal
@@ -249,38 +248,29 @@ def aggregate_token_log_probs(
     """Aggregate token-level log probabilities to word-level.
 
     Sums log probabilities of sub-word tokens that belong to the same whitespace-delimited word.
-    A token belongs to the word holding its first non-space character. A leading
-    space goes with the next word (GPT-2 convention), and the byte tokens of one
-    multi-byte character, which share its span, stay with that character's word.
-    A word the tokenizer emitted no token for (BERT normalization drops
-    private-use characters, e.g. U+E004) gets 0: the model never saw it.
 
     :param text: the input text (no leading/trailing whitespace).
     :param token_log_probs: log probability for each token.
     :param token_offsets: character offset (start, end) for each token.
     :return: tuple of (word_log_probs, list of (word, log_prob) pairs)
-    :raises ValueError: if a token does not lie inside a single word.
     """
     words = text.split()
-    word_offsets = get_word_offsets(words)
-    word_ends = [end for _, end in word_offsets]
     agg_log_probs = [0.0] * len(words)
-    for lp, (start, end) in zip(token_log_probs, token_offsets):
-        # First word ending after the token's start. A token that starts on the
-        # space before its word starts at the previous word's end, so it goes
-        # to the next word.
-        word_ind = bisect.bisect_right(word_ends, start)
-        if word_ind >= len(words):
-            raise ValueError(
-                f"Token {(start, end)} starts after the last word of {text!r}"
-            )
-        word_start, word_end = word_offsets[word_ind]
-        if end > word_end or (end <= word_start and not text[start:end].isspace()):
-            raise ValueError(
-                f"Token {(start, end)} {text[start:end]!r} is not inside word "
-                f"{word_ind} {words[word_ind]!r} {(word_start, word_end)}"
-            )
-        agg_log_probs[word_ind] += lp
+    word_offsets = get_word_offsets(words)
+    cur_word_ind = 0
+    for lp, ind in zip(token_log_probs, token_offsets):
+        # A token belongs to the first word that ends after the token starts.
+        # A token starting on the space before a word (GPT-2's "Gword") goes
+        # to that word, and the byte tokens of one multi-byte character, which
+        # share its start, stay in the same word. A word the tokenizer emitted
+        # no token for (BERT normalization drops private-use characters, e.g.
+        # U+E004) is skipped: the model never saw it, so it keeps 0.
+        while ind[0] >= word_offsets[cur_word_ind][1]:
+            cur_word_ind += 1
+        assert ind[1] <= word_offsets[cur_word_ind][1], (
+            f"Token {ind} crosses the end of word {words[cur_word_ind]!r}."
+        )
+        agg_log_probs[cur_word_ind] += lp
 
     zipped_surp = list(zip(words, agg_log_probs))
     return agg_log_probs, zipped_surp

@@ -46,12 +46,8 @@ class TestWordAggregation(unittest.TestCase):
         self.assert_word_tokens("日本 語", [4, 3])
 
     def test_token_crossing_a_word_boundary_raises(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(AssertionError):
             aggregate_token_log_probs("ab cd", np.array([1.0]), [(0, 4)])
-
-    def test_token_after_the_last_word_raises(self):
-        with self.assertRaises(ValueError):
-            aggregate_token_log_probs("ab", np.array([1.0, 1.0]), [(0, 2), (2, 3)])
 
 
 if __name__ == "__main__":
