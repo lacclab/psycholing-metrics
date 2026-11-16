@@ -9,7 +9,10 @@ from typing import List, Tuple
 import numpy as np
 import torch
 
-from psycholing_metrics.surprisal.base import BaseSurprisalExtractor
+from psycholing_metrics.surprisal.base import (
+    BaseSurprisalExtractor,
+    cap_overlap_size,
+)
 from psycholing_metrics.text_processing import trim_left_context
 
 
@@ -114,11 +117,7 @@ class ConcatenatedSurprisalExtractor(BaseSurprisalExtractor):
             full_context = left_context_text + " " + target_text
             target_text_char_onset = len(full_context) - len(target_text)
 
-            # Cap overlap at max_ctx - 1 so models with small windows
-            # (e.g. max_position_embeddings=512 and default overlap_size=512)
-            # don't hit the stride >= max_ctx assertion.
-            if overlap_size >= max_ctx:
-                overlap_size = max(1, max_ctx - 1)
+            overlap_size = cap_overlap_size(overlap_size, max_ctx)
 
             (
                 all_log_probs,
