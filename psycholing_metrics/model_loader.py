@@ -38,7 +38,10 @@ def load_tokenizer_and_model(
     """Load a HuggingFace causal language model and its tokenizer.
 
     :param model_name: HuggingFace model identifier (e.g. 'gpt2', 'EleutherAI/pythia-70m').
-    :param device: target device for the model. Defaults to 'cpu'.
+    :param device: target device for the model (e.g. 'cpu', 'cuda', 'cuda:1'),
+        passed to ``from_pretrained`` as ``device_map``, so the whole model is
+        placed there. Pass 'auto' to let accelerate split it across every
+        visible GPU (for models too large for one). Defaults to 'cpu'.
     :param pythia_checkpoint: checkpoint revision for Pythia models. Defaults to 'step143000'.
     :param hf_access_token: HuggingFace access token, required for gated models (Llama, Gemma, Mistral).
     :raises ValueError: if the model family is not supported.
@@ -83,54 +86,54 @@ def load_tokenizer_and_model(
         raise ValueError(f"Unsupported model: {model_name}")
 
     if is_goldfish:
-        model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
+        model = AutoModelForCausalLM.from_pretrained(model_name, device_map=device)
 
     elif any(
         variant in model_variant
         for variant in ["gpt-neo", "gpt", "CzeGPT", "mGPT", "opt", "rwkv"]
     ):
         try:
-            model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
+            model = AutoModelForCausalLM.from_pretrained(model_name, device_map=device)
         except NotImplementedError as exc:
             # Broken tied-weight safetensors (e.g. redrussianarmy/gpt2-turkish-cased)
             if "meta tensor" not in str(exc):
                 raise
             model = AutoModelForCausalLM.from_pretrained(
-                model_name, device_map="auto", use_safetensors=False
+                model_name, device_map=device, use_safetensors=False
             )
 
     elif "Eagle" in model_variant:  # RWKV
         model = AutoModelForCausalLM.from_pretrained(
-            model_name, device_map="auto", trust_remote_code=True
+            model_name, device_map=device, trust_remote_code=True
         ).to(torch.float32)
 
     elif "pythia" in model_variant:
         model = GPTNeoXForCausalLM.from_pretrained(
-            model_name, revision=pythia_checkpoint, device_map="auto"
+            model_name, revision=pythia_checkpoint, device_map=device
         )
 
     elif "mamba" in model_variant:
         model = MambaForCausalLM.from_pretrained(
             model_name,
-            device_map="auto",
+            device_map=device,
         )
 
     elif "Llama" in model_variant:
         model = LlamaForCausalLM.from_pretrained(
-            model_name, token=hf_access_token, device_map="auto"
+            model_name, token=hf_access_token, device_map=device
         )
 
     elif any(variant in model_variant for variant in ["gemma-2"]):
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             token=hf_access_token,
-            device_map="auto",
+            device_map=device,
             torch_dtype=torch.bfloat16,
         )
 
     elif any(variant in model_variant for variant in ["Mistral", "gemma"]):
         model = AutoModelForCausalLM.from_pretrained(
-            model_name, token=hf_access_token, device_map="auto"
+            model_name, token=hf_access_token, device_map=device
         )
 
     else:
