@@ -255,28 +255,22 @@ def aggregate_token_log_probs(
     :return: tuple of (word_log_probs, list of (word, log_prob) pairs)
     """
     words = text.split()
-    agg_log_probs = []
+    agg_log_probs = [0.0] * len(words)
     word_offsets = get_word_offsets(words)
-    cur_prob = 0
     cur_word_ind = 0
-    n_word_tokens = 0
     for lp, ind in zip(token_log_probs, token_offsets):
-        # A word the tokenizer emitted no token for (BERT normalization drops
-        # private-use characters, e.g. U+E004) ends before the next token
-        # starts. The model never saw it, so it adds no surprisal.
-        while n_word_tokens == 0 and ind[0] >= word_offsets[cur_word_ind][1]:
-            agg_log_probs.append(0.0)
+        # A token belongs to the first word that ends after the token starts.
+        # A token starting on the space before a word (GPT-2's "Gword") goes
+        # to that word, and the byte tokens of one multi-byte character, which
+        # share its start, stay in the same word. A word the tokenizer emitted
+        # no token for (BERT normalization drops private-use characters, e.g.
+        # U+E004) is skipped: the model never saw it, so it keeps 0.
+        while ind[0] >= word_offsets[cur_word_ind][1]:
             cur_word_ind += 1
-        cur_prob += lp
-        n_word_tokens += 1
-        if ind[1] == word_offsets[cur_word_ind][1]:
-            agg_log_probs.append(cur_prob)
-            cur_prob = 0
-            n_word_tokens = 0
-            cur_word_ind += 1
-    # The same for words after the last token.
-    if n_word_tokens == 0:
-        agg_log_probs.extend([0.0] * (len(words) - cur_word_ind))
+        assert ind[1] <= word_offsets[cur_word_ind][1], (
+            f"Token {ind} crosses the end of word {words[cur_word_ind]!r}."
+        )
+        agg_log_probs[cur_word_ind] += lp
 
     zipped_surp = list(zip(words, agg_log_probs))
     return agg_log_probs, zipped_surp
